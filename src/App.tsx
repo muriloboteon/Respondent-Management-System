@@ -51,7 +51,7 @@ export function App() {
   const [columnVisibility, setColumnVisibility] = useState<ColumnVisibilityState>(DEFAULT_COLUMN_VISIBILITY)
   const [columnSizing, setColumnSizing] = useState<ColumnSizingState>(loadColumnSizing)
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({})
-  const [selectedId, setSelectedId] = useState<string | null>('r1')
+  const [selectedId, setSelectedId] = useState<string | null>(null)
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [panel, setPanel] = useState<Panel>(null)
   const [menu, setMenu] = useState<MenuState>(null)
