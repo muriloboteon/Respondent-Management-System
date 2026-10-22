@@ -1,0 +1,73 @@
+/* ==========================================================================
+   Discuss Design System tokens (light mode)
+   Source: Figma "Discuss Design System" → Start from here → Design.md / Design Tokens
+   ========================================================================== */
+:root {
+  /* Primitives */
+  --plum-50: #f6f2fb;  --plum-100: #ece3f4; --plum-200: #d6c4e6; --plum-500: #7b4f9e;
+  --plum-700: #4c2c68; --plum-800: #391f50; --plum-900: #2e1449; --plum-950: #26004f;
+  --orchid-50: #faf6fe; --orchid-100: #f2eafd; --orchid-200: #e8d9fb; --orchid-300: #d6bbf7;
+  --orchid-500: #a364e8; --orchid-600: #8d44d9; --orchid-700: #7832be; --orchid-900: #54267d;
+  --oat-50: #f9f9f6; --oat-100: #f5f5ef; --oat-200: #f0f0e5; --oat-300: #e3e3d3; --oat-800: #685831;
+  --plum-muted-50: #f4f2f6; --plum-muted-100: #e9e5ed; --plum-muted-200: #d8d1df;
+  --plum-muted-300: #c2b8ce; --plum-muted-600: #816b99;
+  --black-100: #ededed; --black-600: #616161; --black-800: #2e2e2e;
+  --dandelion-50: #fffcea; --dandelion-100: #fff6c5; --dandelion-200: #ffed85;
+  --dandelion-500: #ffad00; --dandelion-800: #984608;
+  --coral-50: #fef3f2; --coral-100: #fee5e2; --coral-200: #fecfca; --coral-600: #dd3725;
+  --coral-700: #ba2b1b; --coral-800: #9a271a;
+  --success-50: #effcf7; --success-100: #d7f8eb; --success-200: #aff0d7;
+  --success-500: #25be8c; --success-900: #0b5f4a;
+  --white: #ffffff;
+
+  /* Semantic */
+  --page-background: var(--oat-50);
+  --surface-background: var(--white);
+  --surface-foreground: var(--black-800);
+  --foreground: var(--black-800);
+  --foreground-primary: var(--plum-950);
+  --foreground-secondary-muted: var(--black-600);
+  --foreground-muted: var(--plum-muted-600);
+  --foreground-border: var(--plum-muted-200);
+  --foreground-input-muted: var(--plum-muted-300);
+  --foreground-input-accent: var(--orchid-500);
+  --foreground-ring: var(--orchid-500);
+  --foreground-accent: var(--orchid-600);
+  --foreground-accent-soft: var(--orchid-900);
+  --foreground-label: var(--plum-50);
+  --background-primary: var(--plum-950);
+  --background-primary-hover: var(--plum-800);
+  --background-secondary: var(--oat-100);
+  --background-secondary-hover: var(--oat-200);
+  --background-muted: var(--plum-muted-200);
+  --background-accent-soft: var(--orchid-50);
+  --background-accent-selected: var(--orchid-100);
+  --background-destructive: var(--coral-600);
+
+  /* Soft triplets (fill / text / border) */
+  --success-soft: var(--success-50);   --success-soft-fg: var(--success-900);  --success-soft-border: var(--success-200);
+  --warning-soft: var(--dandelion-50); --warning-soft-fg: var(--dandelion-800); --warning-soft-border: var(--dandelion-200);
+  --destructive-soft: var(--coral-50); --destructive-soft-fg: var(--coral-800); --destructive-soft-border: var(--coral-200);
+  --accent-soft: var(--orchid-50);     --accent-soft-fg: var(--orchid-700);    --accent-soft-border: var(--orchid-200);
+  --primary-soft: var(--plum-100);     --primary-soft-fg: var(--plum-800);     --primary-soft-border: var(--plum-200);
+
+  /* Radius */
+  --radius-xs: 4px; --radius-sm: 6px; --radius-md: 8px; --radius-lg: 12px; --radius-xl: 16px; --radius-full: 9999px;
+
+  /* Spacing (4px grid) */
+  --sp-0-5: 2px; --sp-1: 4px; --sp-1-5: 6px; --sp-2: 8px; --sp-2-5: 10px; --sp-3: 12px;
+  --sp-4: 16px; --sp-5: 20px; --sp-6: 24px; --sp-8: 32px; --sp-12: 48px;
+
+  /* Typography */
+  --font-sans: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --fs-xs: 12px; --fs-sm: 14px; --fs-base: 16px; --fs-lg: 18px; --fs-xl: 20px; --fs-2xl: 24px;
+  --tracking-wide: 0.4px;
+
+  /* Effects */
+  --shadow-sm: 0 1px 2px rgba(38, 0, 79, 0.06);
+  --shadow-md: 0 8px 24px rgba(38, 0, 79, 0.12), 0 2px 6px rgba(38, 0, 79, 0.06);
+  --focus-ring: 0 0 0 3px var(--orchid-200);
+
+  /* Layout */
+  --page-gutter: var(--sp-6);
+}
