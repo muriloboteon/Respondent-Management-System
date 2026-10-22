@@ -27,6 +27,8 @@ const PATHS = {
     </>
   ),
   plus: <path d="M8 3v10M3 8h10" stroke="currentColor" strokeLinecap="round" fill="none" />,
+  download: <path d="M8 2.5v8M4.5 7 8 10.5 11.5 7M2.5 10v2.5a1 1 0 0 0 1 1h9a1 1 0 0 0 1-1V10" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" fill="none" />,
+  upload:<path d="M8 10.5V2.5M4.5 6 8 2.5 11.5 6M2.5 10v2.5a1 1 0 0 0 1 1h9a1 1 0 0 0 1-1V10" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" fill="none" />,
   sparkle: (
     <>
       <path d="M6.5 2.5l1.1 3.4 3.4 1.1-3.4 1.1-1.1 3.4-1.1-3.4L2 7l3.4-1.1 1.1-3.4Z" fill="none" stroke="currentColor" strokeLinejoin="round" />
@@ -35,6 +37,13 @@ const PATHS = {
   ),
   check: <path d="M3 8.5l3 3 7-7" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" fill="none" />,
   star:<path d="M8 1.75l1.93 3.91 4.32.63-3.13 3.05.74 4.3L8 11.61l-3.86 2.03.74-4.3L1.75 6.29l4.32-.63L8 1.75Z" fill="currentColor" />,
+  user: (
+    <>
+      <circle cx="8" cy="5.5" r="3" fill="none" stroke="currentColor" />
+      <path d="M2.5 13.5a5.5 5.5 0 0 1 11 0" fill="none" stroke="currentColor" strokeLinecap="round" />
+    </>
+  ),
+  pencil: <path d="M10.5 2.5l3 3-8 8H2.5v-3l8-8ZM8.5 4.5l3 3" fill="none" stroke="currentColor" strokeLinejoin="round" />,
   trash: <path d="M13.5 3H11v-.5A1.5 1.5 0 0 0 9.5 1h-3A1.5 1.5 0 0 0 5 2.5V3H2.5a.5.5 0 0 0 0 1H3v9a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V4h.5a.5.5 0 0 0 0-1ZM6 2.5a.5.5 0 0 1 .5-.5h3a.5.5 0 0 1 .5.5V3H6v-.5ZM12 13H4V4h8v9ZM7 6.5v4a.5.5 0 0 1-1 0v-4a.5.5 0 0 1 1 0Zm3 0v4a.5.5 0 0 1-1 0v-4a.5.5 0 0 1 1 0Z" fill="currentColor" />,
 }
 

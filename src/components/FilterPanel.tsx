@@ -29,6 +29,7 @@ import {
   type PropertyDef,
 } from '../filters/properties'
 import { useDismiss } from '../hooks/useDismiss'
+import { Checkbox } from './Checkbox'
 import { FloatingMenu, anchorFor, useAnchoredPosition, type MenuItem } from './FloatingMenu'
 import { Icon } from './Icon'
 
@@ -96,7 +97,7 @@ export function CheckList({ label, options, value, onChange }: { label: string; 
     <div className="fp-checklist" role="group" aria-label={label}>
       {options.map(([v, text]) => (
         <label key={v} className="check-row">
-          <input type="checkbox" checked={value.includes(v)} onChange={() => onChange(toggle(value, v))} />
+          <Checkbox checked={value.includes(v)} onChange={() => onChange(toggle(value, v))} />
           <span>{text}</span>
         </label>
       ))}
@@ -142,7 +143,7 @@ function MultiSelect({ anchorKey, label, options, value, onChange }: { anchorKey
   )
 }
 
-export function ValueEditor({ c, prop, onChange, inline = false }: { c: Condition; prop: PropertyDef; onChange: (value: string | string[]) => void; inline?: boolean }) {
+function ValueEditor({ c, prop, onChange, inline = false }: { c: Condition; prop: PropertyDef; onChange: (value: string | string[]) => void; inline?: boolean }) {
   if (NO_VALUE_OPS.has(c.op)) return null
   const label = `${prop.label} value`
 
@@ -194,7 +195,7 @@ export function ValueEditor({ c, prop, onChange, inline = false }: { c: Conditio
 }
 
 /** "Filter by..." search plus All / Respondent / Screener tabs, like Rally's property picker. */
-export function PropertyPicker({ anchorKey, onPick, onClose }: { anchorKey: string; onPick: (id: string) => void; onClose: () => void }) {
+function PropertyPicker({ anchorKey, onPick, onClose }: { anchorKey: string; onPick: (id: string) => void; onClose: () => void }) {
   const ref = useRef<HTMLDivElement>(null)
   const input = useRef<HTMLInputElement>(null)
   const [query, setQuery] = useState('')

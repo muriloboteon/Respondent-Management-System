@@ -19,6 +19,7 @@ import {
   type Row,
   type SortFn,
 } from '@tanstack/react-table'
+import { Checkbox } from '../components/Checkbox'
 import { Icon } from '../components/Icon'
 import { StatusTag, Tag } from '../components/Tag'
 import {
@@ -106,8 +107,7 @@ function RespondentCell({ row, meta }: { row: RespondentRow; meta: RespondentTab
   const menuOpen = meta.menu?.type === 'row' && meta.menu.id === r.id
   return (
     <>
-      <input
-        type="checkbox"
+      <Checkbox
         checked={row.getIsSelected()}
         onChange={row.getToggleSelectedHandler()}
         aria-label={`Select ${r.name}, ${r.pid}`}

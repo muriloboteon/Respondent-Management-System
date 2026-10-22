@@ -3,6 +3,7 @@ import type { CSSProperties, KeyboardEvent } from 'react'
 import type { Respondent } from '../data/respondents'
 import { viaLabel, type Via } from '../data/respondents'
 import type { RespondentRow, features } from '../table/respondentsTable'
+import { Checkbox } from './Checkbox'
 import { Icon } from './Icon'
 import { Tag } from './Tag'
 
@@ -79,9 +80,9 @@ function HeaderCell({ table, header, row, col }: { table: Table; header: Header;
   if (column.getIsPinned() === 'start') {
     return (
       <div {...cellProps} className="th sticky" aria-sort={ariaSort(sorted)}>
-        <input
-          type="checkbox"
+        <Checkbox
           checked={table.getIsAllRowsSelected()}
+          indeterminate={table.getIsSomeRowsSelected()}
           onChange={table.getToggleAllRowsSelectedHandler()}
           aria-label="Select all shown respondents"
         />

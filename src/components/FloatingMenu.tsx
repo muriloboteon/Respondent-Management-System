@@ -8,6 +8,8 @@ export interface MenuItem {
   danger?: boolean
   disabled?: boolean
   separatorBefore?: boolean
+  /** Group label shown above this item (after the separator, if any). */
+  heading?: string
   onSelect?: () => void
 }
 
@@ -90,6 +92,7 @@ export function FloatingMenu({
   const nodes: ReactNode[] = []
   items.forEach((item, i) => {
     if (item.separatorBefore) nodes.push(<div key={`sep-${i}`} className="menu-sep" role="separator" />)
+    if (item.heading) nodes.push(<div key={`head-${i}`} className="menu-heading" role="presentation">{item.heading}</div>)
     nodes.push(
       <button
         key={item.label}

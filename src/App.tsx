@@ -8,16 +8,19 @@ import {
   type RowSelectionState,
   type SortingState,
 } from '@tanstack/react-table'
-import { useEffect, useRef, useState } from 'react'
-import { DetailPanel } from './components/DetailPanel'
+import { useEffect, useRef, useState, type CSSProperties } from 'react'
+import { DETAIL_MAX_W, DETAIL_MIN_W, DetailPanel } from './components/DetailPanel'
 import { Icon } from './components/Icon'
 import { PasteImportDialog } from './components/PasteImportDialog'
 import { FloatingMenu, type MenuItem } from './components/FloatingMenu'
 import { ListHeader, type Panel } from './components/ListHeader'
 import { RespondentsTable } from './components/RespondentsTable'
+import { RemoveConfirm } from './components/RemoveConfirm'
+import { ASSIGN_ITEMS, SEGMENT_ITEMS } from './components/respondentActions'
 import { TOTAL_RESPONDENTS, respondents, type GroupBy, type Respondent } from './data/respondents'
 import { EMPTY_FILTERS, matchesFilters, viewTree, type Filters, type ViewId } from './filters/filters'
 import { useMediaQuery } from './hooks/useMediaQuery'
+import { useStoredState } from './hooks/useStoredState'
 import { loadColumnSizing, saveColumnSizing } from './table/columnSizingStorage'
 import {
   DEFAULT_COLUMN_VISIBILITY,
@@ -38,6 +41,11 @@ function isEditableTarget(target: EventTarget | null) {
   return target instanceof Element && target.closest('input, textarea, select, [contenteditable=""], [contenteditable="true"], dialog') !== null
 }
 
+const isNumber = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v)
+/** Keeps the docked panel within its limits and leaves room for the table. */
+const clampDetailWidth = (w: number) =>
+  Math.round(Math.max(DETAIL_MIN_W, Math.min(w, DETAIL_MAX_W, window.innerWidth - 640)))
+
 export function App() {
   const [data, setData] = useState<Respondent[]>(respondents)
   const [newIds, setNewIds] = useState<ReadonlySet<string>>(() => new Set())
@@ -53,8 +61,11 @@ export function App() {
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({})
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [drawerOpen, setDrawerOpen] = useState(false)
+  const [detailWidth, setDetailWidth] = useStoredState('respondent-hub:detail-width', 440, isNumber)
   const [panel, setPanel] = useState<Panel>(null)
   const [menu, setMenu] = useState<MenuState>(null)
+  /** Respondents waiting on the remove confirmation. */
+  const [removing, setRemoving] = useState<string[] | null>(null)
 
   const isWide = useMediaQuery('(min-width: 1280px)')
   const closeBtn = useRef<HTMLButtonElement>(null)
@@ -151,20 +162,45 @@ export function App() {
     if (selectedId && ids.has(selectedId)) setSelectedId(null)
     setLastAdded(null)
   }
+  /** Opens the remove confirmation; the bulk actions, row menu and detail panel all use it. */
+  const askRemove = (ids: string[]) => {
+    setMenu(null)
+    setRemoving(ids)
+  }
+  const removeRespondents = (ids: ReadonlySet<string>) => {
+    setData((d) => d.filter((r) => !ids.has(r.id)))
+    setNewIds((cur) => new Set([...cur].filter((id) => !ids.has(id))))
+    setRowSelection((sel) => Object.fromEntries(Object.entries(sel).filter(([id]) => !ids.has(id))))
+    if (selectedId && ids.has(selectedId)) {
+      setSelectedId(null)
+      setDrawerOpen(false)
+    }
+    setLastAdded(null)
+  }
 
-  const selected = data.find((r) => r.id === selectedId) ?? null
-  const asDrawer = !isWide
-  const drawerVisible = asDrawer && selected !== null && drawerOpen
+  const selected =data.find((r) => r.id === selectedId) ?? null
+  /** On narrow screens the side panel slides over the table. */
+  const asDialog = !isWide
+  const overlayOpen = asDialog && selected !== null && drawerOpen
+  const docked = !asDialog && selected !== null
+  const panelWidth = clampDetailWidth(detailWidth)
 
-  // Modal drawer on narrow screens: lock page scroll, move focus in, close on Escape.
+  // Previous / next follow the table's current order (sorting, filters, grouping).
+  const order = table.getRowModel().rows.filter((row) => !row.getIsGrouped()).map((row) => row.id)
+  const at = selectedId ? order.indexOf(selectedId) : -1
+  const prevId = at > 0 ? order[at - 1] : null
+  const nextId = at >= 0 && at < order.length - 1 ? order[at + 1] : null
+
+  // Modal or drawer: lock page scroll, move focus in, close on Escape.
   useEffect(() => {
-    document.body.classList.toggle('scroll-lock', drawerVisible)
-    if (!drawerVisible) return
-    closeBtn.current?.focus()
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && !document.querySelector('dialog[open]') && closeDetail()
+    document.body.classList.toggle('scroll-lock', overlayOpen)
+    if (!overlayOpen) return
+    if (!document.activeElement?.closest('.detail')) closeBtn.current?.focus()
+    const onKey = (e: KeyboardEvent) =>
+      e.key === 'Escape' && !document.querySelector('dialog[open], .menu') && closeDetail()
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
-  }, [drawerVisible])
+  }, [overlayOpen])
 
   const groupBy = (grouping[0] as GroupBy | undefined) ?? 'none'
   const pickedCount = data.filter((r) => rowSelection[r.id]).length
@@ -211,12 +247,10 @@ export function App() {
           onClose={() => setMenu(null)}
           items={[
             { label: 'Open details', onSelect: () => openDetail(r.id) },
-            { label: 'Schedule live session', separatorBefore: true },
-            { label: 'Assign AI interview' },
-            { label: 'Assign activity' },
-            { label: 'Assign segment' },
-            { label: 'Export to CSV', separatorBefore: true },
-            { label: 'Remove from project', icon: 'trash', danger: true },
+            ...ASSIGN_ITEMS.map((item, i) => ({ ...item, separatorBefore: i === 0, heading: i === 0 ? 'Assign' : undefined })),
+            ...SEGMENT_ITEMS.map((item, i) => ({ ...item, separatorBefore: i === 0, heading: i === 0 ? 'Segment' : undefined })),
+            { label: 'Export to CSV', icon: 'download', separatorBefore: true },
+            { label: 'Remove from project', icon: 'trash', danger: true, separatorBefore: true, onSelect: () => askRemove([r.id]) },
           ]}
         />
       )
@@ -224,9 +258,24 @@ export function App() {
   }
 
   return (
-    <div className={[drawerVisible && 'is-drawer-open', panel && 'panel-open'].filter(Boolean).join(' ')}>
+    <div
+      className={[overlayOpen && 'is-drawer-open', docked && 'is-docked', panel && 'panel-open'].filter(Boolean).join(' ')}
+      style={{ '--detail-w': `${panelWidth}px` } as CSSProperties}
+    >
       <main className="page" id="respondents">
-        <div className={selected ? 'layout has-detail' : 'layout'}>
+        <header className="page-head">
+          <div className="title-group">
+            <h1 id="list-h">Respondents</h1>
+            <span className="count-badge soft" aria-label={`${total.toLocaleString('en-US')} respondents in project`}>
+              {total.toLocaleString('en-US')}
+            </span>
+          </div>
+          <button type="button" className="btn btn-primary">
+            <Icon name="upload" />
+            Upload Respondents
+          </button>
+        </header>
+        <div className="layout">
           <section className="card list-card" aria-labelledby="list-h">
             <ListHeader
               table={table}
@@ -245,7 +294,7 @@ export function App() {
                 setPanel(p)
               }}
               pickedCount={pickedCount}
-              total={total}
+              onRemovePicked={() => askRemove(data.filter((r) => rowSelection[r.id]).map((r) => r.id))}
               onPasteClick={PASTE_IMPORT_ENABLED ? () => setPasteText('') : undefined}
               notice={
                 lastAdded && (
@@ -272,13 +321,43 @@ export function App() {
           </section>
 
           {selected && (
-            <DetailPanel r={selected} all={data} asDrawer={asDrawer} hidden={asDrawer && !drawerOpen} closeRef={closeBtn} onClose={closeDetail} />
+            <DetailPanel
+              r={selected}
+              all={data}
+              asDialog={asDialog}
+              resizable={docked}
+              width={panelWidth}
+              hidden={asDialog && !drawerOpen}
+              closeRef={closeBtn}
+              prevId={prevId}
+              nextId={nextId}
+              onNavigate={(id) => {
+                setSelectedId(id)
+                requestAnimationFrame(() => document.querySelector(`[data-opener="${id}"]`)?.scrollIntoView({ block: 'nearest' }))
+              }}
+              onWidthChange={(w) => setDetailWidth(clampDetailWidth(w))}
+              onClose={closeDetail}
+              onRemove={() => askRemove([selected.id])}
+            />
           )}
         </div>
       </main>
       <div className="scrim" onClick={closeDetail} />
       <div className="scrim-sheet" />
       {menuNode}
+      {removing && (
+        <RemoveConfirm
+          names={removing.map((id) => data.find((r) => r.id === id)?.name ?? id)}
+          onCancel={() => setRemoving(null)}
+          onConfirm={() => {
+            removeRespondents(new Set(removing))
+            setRemoving(null)
+            // The removed rows (and their buttons) are gone; wait for the modal to close, then
+            // move focus to the select-all checkbox.
+            requestAnimationFrame(() => document.querySelector<HTMLElement>('[aria-label="Select all shown respondents"]')?.focus())
+          }}
+        />
+      )}
       {pasteText !== null && (
         <PasteImportDialog initialText={pasteText} existing={data} onClose={() => setPasteText(null)} onAdd={addRespondents} />
       )}

@@ -10,6 +10,7 @@ import {
   type ImportField,
   type Mapping,
 } from '../import/spreadsheetPaste'
+import { Checkbox } from './Checkbox'
 import { Icon } from './Icon'
 import { Tag } from './Tag'
 
@@ -142,11 +143,11 @@ export function PasteImportDialog({ initialText, existing, onClose, onAdd }: Pro
         <>
           <div className="modal-toolbar">
             <label className="check-inline">
-              <input type="checkbox" checked={hasHeader} onChange={(e) => toggleHeader(e.target.checked)} />
+              <Checkbox checked={hasHeader} onChange={(e) => toggleHeader(e.target.checked)} />
               First row is a header
             </label>
             <label className="check-inline">
-              <input type="checkbox" checked={problemsOnly} disabled={!problemCount} onChange={(e) => setProblemsOnly(e.target.checked)} />
+              <Checkbox checked={problemsOnly} disabled={!problemCount} onChange={(e) => setProblemsOnly(e.target.checked)} />
               Show only rows with problems
             </label>
             <button
