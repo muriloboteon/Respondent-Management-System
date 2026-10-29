@@ -334,6 +334,7 @@ export function App() {
           data={data}
           total={total}
           active={metric}
+          condensed={tableScrolled}
           onSelect={(id) => {
             // Like a status tab: show "All respondents" with only this metric's filter;
             // picking the active metric again goes back to everyone.

@@ -1,5 +1,5 @@
 import type { ReactTable } from '@tanstack/react-table'
-import type { CSSProperties, KeyboardEvent } from 'react'
+import { useRef, type CSSProperties, type KeyboardEvent, type UIEvent } from 'react'
 import type { Respondent } from '../data/respondents'
 import { viaLabel, type Via } from '../data/respondents'
 import type { RespondentRow, features } from '../table/respondentsTable'
@@ -142,6 +142,16 @@ function groupLabel(row: RespondentRow) {
 /** `onScrolledChange` reports whether the table is scrolled away from its top. */
 export function RespondentsTable({ table, onScrolledChange }: { table: Table; onScrolledChange?: (scrolled: boolean) => void }) {
   const meta = table.options.meta!
+  // Hysteresis: "scrolled" once past 24px, back only at the very top, so small moves near
+  // the top don't flip it back and forth.
+  const scrolled = useRef(false)
+  const onScroll = (e: UIEvent<HTMLDivElement>) => {
+    const top = e.currentTarget.scrollTop
+    const next = scrolled.current ? top >= 1 : top > 24
+    if (next === scrolled.current) return
+    scrolled.current = next
+    onScrolledChange?.(next)
+  }
   // Column widths come from TanStack sizing state. A trailing 1fr track fills any
   // leftover width, so the table still spans the card when columns are narrow.
   const tableStyle = {
@@ -153,7 +163,7 @@ export function RespondentsTable({ table, onScrolledChange }: { table: Table; on
   const isResizing = table.state.columnResizing.isResizingColumn !== false
 
   return (
-    <div className="table-scroll" onScroll={(e) => onScrolledChange?.(e.currentTarget.scrollTop > 8)}>
+    <div className="table-scroll" onScroll={onScroll}>
       <div role="table" className={isResizing ? 'tbl is-resizing' : 'tbl'} aria-labelledby="list-h" style={tableStyle}>
         <div role="rowgroup" className="thead-group">
           {/* All header rows share one grid (rows use display: contents), so a group

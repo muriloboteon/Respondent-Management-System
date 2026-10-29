@@ -517,46 +517,65 @@ svg.icon-sm { width: 12px; height: 12px; }
 
 /* Metric strip — big numbers between the title and the table. Each is a filter (Stripe-style
    status tabs with counts). While the table is scrolled it condenses to one line per metric,
-   giving the table back the height; --metrics-h lets the list card fit what is left. */
-:root { --metrics-strip-h: 84px; }
+   giving the table back the height; --metrics-h lets the list card fit what is left.
+   Motion: the strip and the list card resize on one curve (shrinking a bit faster than
+   growing back), while MetricStrip glides each label and number from its old spot to the
+   new one (FLIP), so the layout switch reads as one continuous move. */
+:root {
+  --metrics-strip-h: 84px;
+  /* Same timing as GLIDE in MetricStrip.tsx */
+  --metrics-dur: .5s; --metrics-ease: cubic-bezier(.4, 0, .2, 1);
+}
 .page { --metrics-h: calc(var(--metrics-strip-h) + var(--sp-4)); }
-.metrics-condensed { --metrics-strip-h: 36px; }
+.metrics-condensed { --metrics-strip-h: 36px; --metrics-dur: .42s; }
 /* The cards always share the strip's width (never clipped at the edge); long text truncates */
 .metrics {
   display: flex; gap: var(--sp-3); height: var(--metrics-strip-h); margin-bottom: var(--sp-4);
-  container-type: inline-size; transition: height .18s ease;
+  container-type: inline-size; transition: height var(--metrics-dur) var(--metrics-ease);
 }
+/* Content is anchored to the top (not centered), so it already sits at its final spot while
+   the card's height animates; the card clips whatever is outside it meanwhile. */
 .metric {
-  display: flex; flex-direction: column; align-items: flex-start; justify-content: center;
-  flex: 1 1 0; min-width: 0; padding: var(--sp-2-5) var(--sp-4);
+  position: relative; overflow: hidden;
+  display: flex; flex-direction: column; align-items: flex-start; justify-content: flex-start;
+  flex: 1 1 0; min-width: 0; padding: 11px var(--sp-4) 0;
   border: 1px solid var(--foreground-border); border-radius: var(--radius-lg);
   background: var(--surface-background); box-shadow: var(--shadow-sm);
   color: var(--foreground); font: inherit; text-align: left; cursor: pointer;
-  transition: padding .18s ease, border-color .12s ease, background-color .12s ease;
+  transition: border-color .12s ease, background-color .12s ease;
 }
+.metric > * { transform-origin: 0 0; }
 .metric:hover { border-color: var(--foreground-input-accent); }
 .metric[aria-pressed="true"] { border-color: var(--foreground-ring); background: var(--background-accent-selected); }
 .metric:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 .metric-label { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--fs-xs); line-height: 16px; color: var(--foreground-secondary-muted); }
 .metric-value {
   font-size: var(--fs-2xl); line-height: 28px; font-weight: 600; letter-spacing: -0.3px;
-  color: var(--foreground-primary); font-variant-numeric: tabular-nums; transition: font-size .18s ease, line-height .18s ease;
+  color: var(--foreground-primary); font-variant-numeric: tabular-nums;
 }
 .metric.is-attention .metric-value { color: var(--warning-soft-fg); }
+/* Coming back, the hint fades in once the card has mostly opened */
 .metric-hint {
   max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   font-size: var(--fs-xs); line-height: 16px; color: var(--foreground-muted);
+  transition: opacity .3s ease .2s, visibility 0s;
 }
 /* Narrow strip: tighter cards and a smaller number, so four still fit side by side */
 @container (max-width: 720px) {
   .metric { padding-inline: var(--sp-3); }
   .metric-value { font-size: var(--fs-xl); }
 }
-/* Condensed: "Label  value" on one line from the left edge; the hint leaves the layout */
-.metrics-condensed .metric { flex-direction: row; align-items: center; justify-content: flex-start; gap: var(--sp-2); padding-block: 0; }
-.metrics-condensed .metric-label { flex: 0 1 auto; min-width: 0; }
+/* Condensed: "Label  value" on one line from the left edge (the 20px line sits 8px from both
+   edges of the 36px card). Both texts get a 20px line and sit at the top of the content box:
+   centering would use the whole box under the top padding and push them low.
+   The hint leaves the layout and fades out quickly, before the rest. */
+.metrics-condensed .metric { flex-direction: row; align-items: flex-start; gap: var(--sp-2); padding-top: 7px; }
+.metrics-condensed .metric-label { flex: 0 1 auto; min-width: 0; line-height: 20px; }
 .metrics-condensed .metric-value { flex: none; font-size: var(--fs-sm); line-height: 20px; letter-spacing: 0; }
-.metrics-condensed .metric-hint { display: none; }
+.metrics-condensed .metric-hint {
+  position: absolute; opacity: 0; visibility: hidden;
+  transition: opacity .15s ease, visibility 0s .15s;
+}
 
 .card {
   min-width: 0; background: var(--surface-background);
@@ -622,7 +641,7 @@ svg.icon-sm { width: 12px; height: 12px; }
     height: calc(100vh - 2 * var(--page-gutter) - var(--page-head-h) - var(--metrics-h));
     height: calc(100dvh - 2 * var(--page-gutter) - var(--page-head-h) - var(--metrics-h));
     /* Grows and shrinks with the metric strip as it condenses */
-    transition: height .18s ease;
+    transition: height var(--metrics-dur) var(--metrics-ease);
   }
   .table-scroll {
     flex: 1 1 auto; min-height: 0; overflow: auto; overscroll-behavior: contain;
@@ -915,8 +934,14 @@ body.is-resizing { cursor: col-resize; user-select: none; }
 
 @media (prefers-reduced-motion: reduce) {
   .detail, .is-drawer-open .detail, .fold > summary .icon, .glance > summary .icon { transition: none; }
-  .metrics, .metric, .metric-value, .list-card { transition: none; }
+  /* Metric strip: no glide and no resizing motion; the cards' text crossfades instead (two
+     keyframe names, so the fade replays in both directions) */
+  .metrics, .list-card, .metric-hint, .metrics-condensed .metric-hint { transition: none; }
+  .metric > * { animation: metric-text-in-a .15s ease-out; }
+  .metrics-condensed .metric > * { animation-name: metric-text-in-b; }
 }
+@keyframes metric-text-in-a { from { opacity: 0; } }
+@keyframes metric-text-in-b { from { opacity: 0; } }
 
 /* ==========================================================================
    Paste from spreadsheet
