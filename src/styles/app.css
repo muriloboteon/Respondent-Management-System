@@ -604,26 +604,26 @@ svg.icon-sm { width: 12px; height: 12px; }
 .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 .thead-group { position: sticky; top: 0; z-index: 5; }
 
-/* Tall enough screens: the list card is capped to the viewport and the table scrolls
-   inside it on both axes, so the horizontal scrollbar and header row stay in view.
-   The card still shrinks to fit when there are only a few rows. Shorter screens
-   (phones in landscape) keep the page-level scroll, where a boxed table would be tiny. */
+/* Tall enough screens: the list card fills the viewport down to the bottom gutter and the
+   table scrolls inside it on both axes, so the horizontal scrollbar and header row stay in
+   view. The card keeps that height with only a few rows: the table area stays blank below
+   them and the horizontal scrollbar sits at the card's foot. Shorter screens (phones in
+   landscape) keep the page-level scroll, where a boxed table would be tiny. */
 @media (min-height: 600px) {
   .list-card {
-    max-height: calc(100vh - 2 * var(--page-gutter) - var(--page-head-h) - var(--metrics-h));
-    max-height: calc(100dvh - 2 * var(--page-gutter) - var(--page-head-h) - var(--metrics-h));
+    height: calc(100vh - 2 * var(--page-gutter) - var(--page-head-h) - var(--metrics-h));
+    height: calc(100dvh - 2 * var(--page-gutter) - var(--page-head-h) - var(--metrics-h));
     /* Grows and shrinks with the metric strip as it condenses */
-    transition: max-height .18s ease;
+    transition: height .18s ease;
   }
   .table-scroll {
-    flex: 0 1 auto; min-height: 0; overflow: auto; overscroll-behavior: contain;
+    flex: 1 1 auto; min-height: 0; overflow: auto; overscroll-behavior: contain;
     /* Keep keyboard-focused rows clear of the sticky header */
     scroll-padding-top: 96px;
   }
 }
 .tbl { font-size: var(--fs-sm); }
 .tr { display: grid; grid-template-columns: var(--grid-cols); align-items: stretch; border-bottom: 1px solid var(--foreground-border); --row-bg: var(--surface-background); background: var(--row-bg); }
-.tbody .tr:last-child { border-bottom: 0; }
 .tbody .tr:hover { --row-bg: var(--background-accent-soft); }
 .tbody .tr.is-selected { --row-bg: var(--background-accent-selected); }
 .tbody .tr.is-picked:not(.is-selected) { --row-bg: var(--orchid-50); }
