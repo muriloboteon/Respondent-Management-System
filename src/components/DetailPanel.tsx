@@ -178,13 +178,16 @@ interface Props {
   nextId: string | null
   onNavigate: (id: string) => void
   onWidthChange: (width: number) => void
+  /** True when the panel is shown as a centered modal instead of the side panel. */
+  expanded: boolean
+  onToggleExpand: () => void
   onClose: () => void
   /** Asks to remove this respondent from the project. */
   onRemove: () => void
 }
 
 export function DetailPanel({
-  r, all, asDialog, resizable, width, hidden, closeRef, prevId, nextId, onNavigate, onWidthChange, onClose, onRemove,
+  r, all, asDialog, resizable, width, hidden, closeRef, prevId, nextId, onNavigate, onWidthChange, expanded, onToggleExpand, onClose, onRemove,
 }: Props) {
   const [assignOpen, setAssignOpen] = useState(false)
   const dup = dupInfo(r, all)
@@ -247,6 +250,15 @@ export function DetailPanel({
           </button>
           <button type="button" className="icon-btn" aria-label="Next respondent" title="Next respondent" disabled={!nextId} onClick={() => nextId && onNavigate(nextId)}>
             <Icon name="caretDown" />
+          </button>
+          <button
+            type="button"
+            className="icon-btn"
+            aria-label={expanded ? 'Collapse to side panel' : 'Expand to modal'}
+            title={expanded ? 'Collapse to side panel' : 'Expand'}
+            onClick={onToggleExpand}
+          >
+            <Icon name={expanded ? 'arrowsIn' : 'arrowsOut'} />
           </button>
           <span className="bar-sep" aria-hidden="true" />
           <button ref={closeRef} type="button" className="icon-btn detail-close" aria-label="Close respondent detail" title="Close" onClick={onClose}>

@@ -14,6 +14,8 @@ import { Icon } from './components/Icon'
 import { PasteImportDialog } from './components/PasteImportDialog'
 import { FloatingMenu, type MenuItem } from './components/FloatingMenu'
 import { ListHeader, type Panel } from './components/ListHeader'
+import { OrgRail } from './components/OrgRail'
+import { ProjectSidebar, ProjectSidebarToggle } from './components/ProjectSidebar'
 import { RespondentsTable } from './components/RespondentsTable'
 import { RemoveConfirm } from './components/RemoveConfirm'
 import { ASSIGN_ITEMS, SEGMENT_ITEMS } from './components/respondentActions'
@@ -42,9 +44,12 @@ function isEditableTarget(target: EventTarget | null) {
 }
 
 const isNumber = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v)
-/** Keeps the docked panel within its limits and leaves room for the table. */
-const clampDetailWidth = (w: number) =>
-  Math.round(Math.max(DETAIL_MIN_W, Math.min(w, DETAIL_MAX_W, window.innerWidth - 640)))
+const isBoolean = (v: unknown): v is boolean => typeof v === 'boolean'
+/** Width of the left navigation (org rail, plus the project sidebar when open); matches --nav-w in app.css. */
+const navWidth = (projectNavOpen: boolean) => 72 + (projectNavOpen ? 240 : 0)
+/** Keeps the docked panel within its limits and leaves room for the table beside the left navigation. */
+const clampDetailWidth = (w: number, projectNavOpen: boolean) =>
+  Math.round(Math.max(DETAIL_MIN_W, Math.min(w, DETAIL_MAX_W, window.innerWidth - navWidth(projectNavOpen) - 640)))
 
 export function App() {
   const [data, setData] = useState<Respondent[]>(respondents)
@@ -61,7 +66,10 @@ export function App() {
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({})
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [drawerOpen, setDrawerOpen] = useState(false)
+  /** The detail is shown as a centered modal instead of the side panel. */
+  const [detailExpanded, setDetailExpanded] = useState(false)
   const [detailWidth, setDetailWidth] = useStoredState('respondent-hub:detail-width', 440, isNumber)
+  const [projectNavOpen, setProjectNavOpen] = useStoredState('respondent-hub:project-nav-open', true, isBoolean)
   const [panel, setPanel] = useState<Panel>(null)
   const [menu, setMenu] = useState<MenuState>(null)
   /** Respondents waiting on the remove confirmation. */
@@ -79,6 +87,7 @@ export function App() {
     const id = selectedId
     setSelectedId(null)
     setDrawerOpen(false)
+    setDetailExpanded(false)
     requestAnimationFrame(() => document.querySelector<HTMLElement>(`[data-opener="${id}"]`)?.focus())
   }
 
@@ -174,6 +183,7 @@ export function App() {
     if (selectedId && ids.has(selectedId)) {
       setSelectedId(null)
       setDrawerOpen(false)
+      setDetailExpanded(false)
     }
     setLastAdded(null)
   }
@@ -181,9 +191,12 @@ export function App() {
   const selected =data.find((r) => r.id === selectedId) ?? null
   /** On narrow screens the side panel slides over the table. */
   const asDialog = !isWide
-  const overlayOpen = asDialog && selected !== null && drawerOpen
-  const docked = !asDialog && selected !== null
-  const panelWidth = clampDetailWidth(detailWidth)
+  /** Expanded: the detail opens as a centered modal at any width. */
+  const modalOpen = selected !== null && detailExpanded
+  const drawerOverlay = asDialog && selected !== null && drawerOpen && !detailExpanded
+  const overlayOpen = drawerOverlay || modalOpen
+  const docked = !asDialog && selected !== null && !detailExpanded
+  const panelWidth = clampDetailWidth(detailWidth, projectNavOpen)
 
   // Previous / next follow the table's current order (sorting, filters, grouping).
   const order = table.getRowModel().rows.filter((row) => !row.getIsGrouped()).map((row) => row.id)
@@ -259,12 +272,17 @@ export function App() {
 
   return (
     <div
-      className={[overlayOpen && 'is-drawer-open', docked && 'is-docked', panel && 'panel-open'].filter(Boolean).join(' ')}
+      className={[drawerOverlay && 'is-drawer-open', modalOpen && 'is-detail-modal', docked && 'is-docked', panel && 'panel-open', projectNavOpen && 'is-project-nav-open']
+        .filter(Boolean)
+        .join(' ')}
       style={{ '--detail-w': `${panelWidth}px` } as CSSProperties}
     >
+      <OrgRail />
+      <ProjectSidebar hidden={!projectNavOpen} current={{ section: 'Fielding', item: 'Respondents' }} />
       <main className="page" id="respondents">
         <header className="page-head">
           <div className="title-group">
+            <ProjectSidebarToggle open={projectNavOpen} onToggle={() => setProjectNavOpen(!projectNavOpen)} />
             <h1 id="list-h">Respondents</h1>
             <span className="count-badge soft" aria-label={`${total.toLocaleString('en-US')} respondents in project`}>
               {total.toLocaleString('en-US')}
@@ -324,10 +342,10 @@ export function App() {
             <DetailPanel
               r={selected}
               all={data}
-              asDialog={asDialog}
+              asDialog={asDialog || modalOpen}
               resizable={docked}
               width={panelWidth}
-              hidden={asDialog && !drawerOpen}
+              hidden={asDialog && !drawerOpen && !modalOpen}
               closeRef={closeBtn}
               prevId={prevId}
               nextId={nextId}
@@ -335,7 +353,9 @@ export function App() {
                 setSelectedId(id)
                 requestAnimationFrame(() => document.querySelector(`[data-opener="${id}"]`)?.scrollIntoView({ block: 'nearest' }))
               }}
-              onWidthChange={(w) => setDetailWidth(clampDetailWidth(w))}
+              onWidthChange={(w) => setDetailWidth(clampDetailWidth(w, projectNavOpen))}
+              expanded={detailExpanded}
+              onToggleExpand={() => setDetailExpanded(!detailExpanded)}
               onClose={closeDetail}
               onRemove={() => askRemove([selected.id])}
             />

@@ -14,7 +14,7 @@
   --black-100: #ededed; --black-600: #616161; --black-800: #2e2e2e;
   --dandelion-50: #fffcea; --dandelion-100: #fff6c5; --dandelion-200: #ffed85;
   --dandelion-500: #ffad00; --dandelion-800: #984608;
-  --coral-50: #fef3f2; --coral-100: #fee5e2; --coral-200: #fecfca; --coral-600: #dd3725;
+  --coral-50: #fef3f2; --coral-100: #fee5e2; --coral-200: #fecfca; --coral-500: #f2695a; --coral-600: #dd3725;
   --coral-700: #ba2b1b; --coral-800: #9a271a;
   --success-50: #effcf7; --success-100: #d7f8eb; --success-200: #aff0d7;
   --success-500: #25be8c; --success-900: #0b5f4a;
@@ -66,6 +66,7 @@
   /* Effects */
   --shadow-sm: 0 1px 2px rgba(38, 0, 79, 0.06);
   --shadow-md: 0 8px 24px rgba(38, 0, 79, 0.12), 0 2px 6px rgba(38, 0, 79, 0.06);
+  --overlay: rgba(0, 0, 0, 0.4);
   --focus-ring: 0 0 0 3px var(--orchid-200);
 
   /* Layout */

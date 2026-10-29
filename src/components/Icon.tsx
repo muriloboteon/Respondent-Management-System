@@ -43,6 +43,8 @@ const PATHS = {
       <path d="M2.5 13.5a5.5 5.5 0 0 1 11 0" fill="none" stroke="currentColor" strokeLinecap="round" />
     </>
   ),
+  arrowsOut: <path d="M9.5 2.5h4v4M13.5 2.5 9 7M6.5 13.5h-4v-4M2.5 13.5 7 9" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" fill="none" />,
+  arrowsIn: <path d="M13.5 2.5 9.5 6.5M9.5 3v3.5H13M2.5 13.5l4-4M3 9.5h3.5V13" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" fill="none" />,
   pencil: <path d="M10.5 2.5l3 3-8 8H2.5v-3l8-8ZM8.5 4.5l3 3" fill="none" stroke="currentColor" strokeLinejoin="round" />,
   trash: <path d="M13.5 3H11v-.5A1.5 1.5 0 0 0 9.5 1h-3A1.5 1.5 0 0 0 5 2.5V3H2.5a.5.5 0 0 0 0 1H3v9a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V4h.5a.5.5 0 0 0 0-1ZM6 2.5a.5.5 0 0 1 .5-.5h3a.5.5 0 0 1 .5.5V3H6v-.5ZM12 13H4V4h8v9ZM7 6.5v4a.5.5 0 0 1-1 0v-4a.5.5 0 0 1 1 0Zm3 0v4a.5.5 0 0 1-1 0v-4a.5.5 0 0 1 1 0Z" fill="currentColor" />,
 }
