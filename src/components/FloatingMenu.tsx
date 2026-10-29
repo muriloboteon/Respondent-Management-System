@@ -4,7 +4,11 @@ import { Icon, type IconName } from './Icon'
 
 export interface MenuItem {
   label: string
+  /** Second line under the label, in smaller muted text. */
+  description?: string
   icon?: IconName
+  /** Icon at the item's right edge, e.g. an arrow for items that lead to another page. */
+  trailingIcon?: IconName
   danger?: boolean
   disabled?: boolean
   separatorBefore?: boolean
@@ -63,7 +67,8 @@ export function FloatingMenu({
   anchorKey: string
   label: string
   align: 'start' | 'end'
-  width: number
+  /** Omit to fit the widest item on one line (still capped to the viewport). */
+  width?: number
   items: MenuItem[]
   onClose: () => void
 }) {
@@ -98,7 +103,7 @@ export function FloatingMenu({
         key={item.label}
         type="button"
         role="menuitem"
-        className={item.danger ? 'menu-item danger' : 'menu-item'}
+        className={['menu-item', item.danger && 'danger', item.description && 'has-desc'].filter(Boolean).join(' ')}
         disabled={item.disabled}
         onClick={() => {
           item.onSelect?.()
@@ -106,13 +111,25 @@ export function FloatingMenu({
         }}
       >
         {item.icon && <Icon name={item.icon} />}
-        {item.label}
+        {item.description ? (
+          <span className="menu-item-text">
+            {item.label}
+            <span className="menu-item-desc">{item.description}</span>
+          </span>
+        ) : (
+          item.label
+        )}
+        {item.trailingIcon && (
+          <span className="menu-item-trail">
+            <Icon name={item.trailingIcon} />
+          </span>
+        )}
       </button>,
     )
   })
 
   return (
-    <div ref={ref} className="menu" role="menu" aria-label={label} style={{ width }} onKeyDown={onKeyDown}>
+    <div ref={ref} className="menu" role="menu" aria-label={label} style={{ width: width ?? 'max-content' }} onKeyDown={onKeyDown}>
       {nodes}
     </div>
   )

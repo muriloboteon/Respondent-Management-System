@@ -387,6 +387,13 @@ svg.icon-sm { width: 12px; height: 12px; }
 }
 .menu-item:hover, .menu-item:focus-visible { background: var(--background-accent-soft); outline: none; }
 .menu-item:disabled { color: var(--foreground-muted); cursor: default; background: none; }
+/* Items with a description: label over a muted second line, icon aligned to the label */
+.menu-item.has-desc { align-items: flex-start; padding-block: var(--sp-2); }
+.menu-item.has-desc > .icon { margin-top: 2px; }
+.menu-item-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; line-height: 20px; }
+.menu-item-desc { font-size: var(--fs-xs); line-height: 16px; color: var(--foreground-secondary-muted); }
+.menu-item-trail { margin-left: auto; padding-left: var(--sp-4); align-self: center; color: var(--foreground-secondary-muted); }
+.menu-item:hover .menu-item-trail, .menu-item:focus-visible .menu-item-trail { color: var(--foreground-accent); }
 .menu-item.danger { color: var(--coral-700); }
 .menu-item.danger:hover { background: var(--destructive-soft); }
 .menu-sep { height: 1px; margin: var(--sp-1) 0; background: var(--foreground-border); }
@@ -571,6 +578,7 @@ svg.icon-sm { width: 12px; height: 12px; }
 .band-filters { padding-block: var(--sp-2); min-height: 45px; }
 .band-end { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-1) var(--sp-3); margin-left: auto; }
 .title-group { display: flex; align-items: center; gap: var(--sp-2); }
+.page-actions { display: flex; align-items: center; gap: var(--sp-2); }
 .title-group h1 { margin: 0; font-size: var(--fs-xl); line-height: 28px; font-weight: 600; color: var(--foreground-primary); letter-spacing: -0.2px; }
 /* Applied filters sit on the left of the filters band and the tools on the right, with the
    search shrinking first; the band only wraps once the card itself is too narrow

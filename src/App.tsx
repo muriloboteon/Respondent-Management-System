@@ -75,6 +75,8 @@ export function App() {
   const [projectNavOpen, setProjectNavOpen] = useStoredState('respondent-hub:project-nav-open', true, isBoolean)
   const [panel, setPanel] = useState<Panel>(null)
   const [menu, setMenu] = useState<MenuState>(null)
+  /** The "more actions" menu next to Upload Respondents. */
+  const [pageMenuOpen, setPageMenuOpen] = useState(false)
   /** Respondents waiting on the remove confirmation. */
   const [removing, setRemoving] = useState<string[] | null>(null)
 
@@ -290,11 +292,44 @@ export function App() {
             <ProjectSidebarToggle open={projectNavOpen} onToggle={() => setProjectNavOpen(!projectNavOpen)} />
             <h1 id="list-h">Respondents</h1>
           </div>
-          <button type="button" className="btn btn-primary">
-            <Icon name="upload" />
-            Upload Respondents
-          </button>
+          <div className="page-actions">
+            <button
+              type="button"
+              className="btn btn-outline btn-icon"
+              data-menu-anchor="page:more"
+              aria-label="More actions"
+              title="More actions"
+              aria-haspopup="menu"
+              aria-expanded={pageMenuOpen}
+              onClick={() => {
+                setPanel(null)
+                setMenu(null)
+                setPageMenuOpen(!pageMenuOpen)
+              }}
+            >
+              <Icon name="dotsVertical" />
+            </button>
+            <button type="button" className="btn btn-primary">
+              <Icon name="upload" />
+              Upload Respondents
+            </button>
+          </div>
         </header>
+        {/* Placeholder options: they only close the menu for now */}
+        {pageMenuOpen && (
+          <FloatingMenu
+            anchorKey="page:more"
+            label="More actions"
+            align="end"
+            onClose={() => setPageMenuOpen(false)}
+            items={[
+              // Leads to another page (none yet), hence the trailing arrow and the divider below it
+              { label: 'Manage Segments', icon: 'chartDonut', description: 'Go to the Segments page', trailingIcon: 'arrowRight' },
+              { label: 'New Custom Column', icon: 'plus', description: 'Add a blank column to the end of the table', separatorBefore: true },
+              { label: 'Recreate custom columns as segments', icon: 'arrowsLeftRight', description: 'Create segments from existing custom columns' },
+            ]}
+          />
+        )}
         <MetricStrip
           data={data}
           total={total}

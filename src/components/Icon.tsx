@@ -3,6 +3,7 @@ const PATHS = {
   search: <path d="M14.354 13.646 11.224 10.518A5.5 5.5 0 1 0 10.518 11.224l3.128 3.13a.5.5 0 0 0 .708-.708ZM2.5 7A4.5 4.5 0 1 1 7 11.5 4.505 4.505 0 0 1 2.5 7Z" fill="currentColor" />,
   sliders: <path d="M4 6.563V2.5a.5.5 0 0 0-1 0v4.063a2 2 0 0 0 0 3.874V13.5a.5.5 0 0 0 1 0v-3.063a2 2 0 0 0 0-3.874ZM3.5 9.5a1 1 0 1 1 0-2 1 1 0 0 1 0 2Zm5-5.937V2.5a.5.5 0 0 0-1 0v1.063a2 2 0 0 0 0 3.874V13.5a.5.5 0 0 0 1 0V7.437a2 2 0 0 0 0-3.874ZM8 6.5a1 1 0 1 1 0-2 1 1 0 0 1 0 2Zm6.5 4a2.004 2.004 0 0 0-1.5-1.938V2.5a.5.5 0 0 0-1 0v6.063a2 2 0 0 0 0 3.874V13.5a.5.5 0 0 0 1 0v-1.063a2.004 2.004 0 0 0 1.5-1.937Zm-2 1a1 1 0 1 1 0-2 1 1 0 0 1 0 2Z" fill="currentColor" />,
   dots: <path d="M8.75 8a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Zm3.5-.75a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5Zm-8.5 0a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5Z" fill="currentColor" />,
+  dotsVertical: <path d="M8.75 8a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0ZM8 3a.75.75 0 1 0 0 1.5A.75.75 0 0 0 8 3Zm0 8.5a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5Z" fill="currentColor" />,
   caretDown: <path d="m13.354 6.354-5 5a.5.5 0 0 1-.708 0l-5-5a.5.5 0 0 1 .708-.708L8 10.293l4.646-4.647a.5.5 0 0 1 .708.708Z" fill="currentColor" />,
   caretUp: <path d="M13.354 10.354a.5.5 0 0 1-.708 0L8 5.707l-4.646 4.647a.5.5 0 0 1-.708-.708l5-5a.5.5 0 0 1 .708 0l5 5a.5.5 0 0 1 0 .708Z" fill="currentColor" />,
   columns: (
@@ -44,6 +45,16 @@ const PATHS = {
     </>
   ),
   arrowsOut: <path d="M9.5 2.5h4v4M13.5 2.5 9 7M6.5 13.5h-4v-4M2.5 13.5 7 9" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" fill="none" />,
+  arrowRight: <path d="M2.5 8h11M9 3.5 13.5 8 9 12.5" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" fill="none" />,
+  /* Same drawing as the org rail's Segments icon (24px grid, scaled to 16) */
+  chartDonut: (
+    <path
+      transform="scale(0.6667)"
+      d="M12 2.25a.75.75 0 0 0-.75.75v5.25A.75.75 0 0 0 12 9a3 3 0 1 1-2.599 1.5.75.75 0 0 0-.274-1.025L4.58 6.85a.75.75 0 0 0-1.025.275A9.75 9.75 0 1 0 12 2.25ZM4.508 8.541l3.273 1.89A4.47 4.47 0 0 0 7.5 12c0 .143.008.281.02.424L3.87 13.406a8.25 8.25 0 0 1 .638-4.865ZM4.258 14.851l3.656-.979a4.5 4.5 0 0 0 3.336 2.564v3.779a8.27 8.27 0 0 1-6.992-5.364ZM12.75 20.215v-3.779a4.5 4.5 0 0 0 0-8.873V3.784a8.25 8.25 0 0 1 0 16.431Z"
+      fill="currentColor"
+    />
+  ),
+  arrowsLeftRight: <path d="M13.5 5h-11M5 2.5 2.5 5 5 7.5M2.5 11h11M11 8.5l2.5 2.5-2.5 2.5" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" fill="none" />,
   arrowsIn: <path d="M13.5 2.5 9.5 6.5M9.5 3v3.5H13M2.5 13.5l4-4M3 9.5h3.5V13" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" fill="none" />,
   pencil: <path d="M10.5 2.5l3 3-8 8H2.5v-3l8-8ZM8.5 4.5l3 3" fill="none" stroke="currentColor" strokeLinejoin="round" />,
   trash: <path d="M13.5 3H11v-.5A1.5 1.5 0 0 0 9.5 1h-3A1.5 1.5 0 0 0 5 2.5V3H2.5a.5.5 0 0 0 0 1H3v9a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V4h.5a.5.5 0 0 0 0-1ZM6 2.5a.5.5 0 0 1 .5-.5h3a.5.5 0 0 1 .5.5V3H6v-.5ZM12 13H4V4h8v9ZM7 6.5v4a.5.5 0 0 1-1 0v-4a.5.5 0 0 1 1 0Zm3 0v4a.5.5 0 0 1-1 0v-4a.5.5 0 0 1 1 0Z" fill="currentColor" />,
