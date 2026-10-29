@@ -25,6 +25,9 @@ import { Tag } from './Tag'
 type Table = ReactTable<typeof features, Respondent>
 export type Panel = 'filter' | 'cols' | null
 
+/** The saved views band is hidden for now to give the table more room. */
+const SHOW_SAVED_VIEWS = false
+
 interface Props {
   table: Table
   filters: Filters
@@ -42,9 +45,11 @@ interface Props {
   onPasteClick?: () => void
   /** Confirmation shown after adding respondents. */
   notice?: ReactNode
+  /** A metric above the table set the filters, so they are not "unsaved changes" to the view. */
+  metricActive?: boolean
 }
 
-export function ListHeader({ table, filters, onFiltersChange, view, onViewChange, groupBy, onGroupByChange, panel, onPanelChange, pickedCount, onRemovePicked, onPasteClick, notice }: Props) {
+export function ListHeader({ table, filters, onFiltersChange, view, onViewChange, groupBy, onGroupByChange, panel, onPanelChange, pickedCount, onRemovePicked, onPasteClick, notice, metricActive = false }: Props) {
   const filterBtn = useRef<HTMLButtonElement>(null)
   const colsBtn = useRef<HTMLButtonElement>(null)
 
@@ -66,7 +71,7 @@ export function ListHeader({ table, filters, onFiltersChange, view, onViewChange
   const items = activeItems(filters.tree)
   const terms = searchTerms(filters.query)
   const hasFilters = items.length > 0 || terms.length > 0
-  const dirty = isViewDirty(view, filters)
+  const dirty = !metricActive && isViewDirty(view, filters)
   const filterCount = items.length + (groupBy !== 'none' ? 1 : 0)
   const togglePanel = (p: Exclude<Panel, null>) => setPanel(panel === p ? null : p)
   // Removing a chip unmounts it, so focus moves to the Filters button.
@@ -78,20 +83,22 @@ export function ListHeader({ table, filters, onFiltersChange, view, onViewChange
   const hideableColumns = table.getAllLeafColumns().filter((c) => c.getCanHide() && c.columnDef.meta!.kind !== 'internal')
 
   return (
-    // Two bands split by full-width dividers: saved views, and the filters band (applied
+    // Two bands split by full-width dividers: saved views (hidden for now), and the filters band (applied
     // filters, then search, Filters and Columns). While rows are picked, bulk actions take the
     // place of the applied filters. The import notice joins as an extra band.
     // The page title sits above the card.
     <div className="list-head">
-      <div className="head-band band-tools">
-        <div className="tabs" role="group" aria-label="Saved views">
-          {(Object.keys(VIEWS) as ViewId[]).map((id) => (
-            <button key={id} type="button" className="tab" aria-pressed={view === id} onClick={() => onViewChange(id)}>
-              {VIEWS[id].label}
-            </button>
-          ))}
+      {SHOW_SAVED_VIEWS && (
+        <div className="head-band band-tools">
+          <div className="tabs" role="group" aria-label="Saved views">
+            {(Object.keys(VIEWS) as ViewId[]).map((id) => (
+              <button key={id} type="button" className="tab" aria-pressed={view === id} onClick={() => onViewChange(id)}>
+                {VIEWS[id].label}
+              </button>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
 
       <span className="sr-only" role="status">{pickedCount > 0 ? `${pickedCount} selected` : ''}</span>
       <div className="head-band band-filters">

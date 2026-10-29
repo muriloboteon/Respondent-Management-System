@@ -508,6 +508,49 @@ svg.icon-sm { width: 12px; height: 12px; }
 }
 .layout { display: block; }
 
+/* Metric strip — big numbers between the title and the table. Each is a filter (Stripe-style
+   status tabs with counts). While the table is scrolled it condenses to one line per metric,
+   giving the table back the height; --metrics-h lets the list card fit what is left. */
+:root { --metrics-strip-h: 84px; }
+.page { --metrics-h: calc(var(--metrics-strip-h) + var(--sp-4)); }
+.metrics-condensed { --metrics-strip-h: 36px; }
+/* The cards always share the strip's width (never clipped at the edge); long text truncates */
+.metrics {
+  display: flex; gap: var(--sp-3); height: var(--metrics-strip-h); margin-bottom: var(--sp-4);
+  container-type: inline-size; transition: height .18s ease;
+}
+.metric {
+  display: flex; flex-direction: column; align-items: flex-start; justify-content: center;
+  flex: 1 1 0; min-width: 0; padding: var(--sp-2-5) var(--sp-4);
+  border: 1px solid var(--foreground-border); border-radius: var(--radius-lg);
+  background: var(--surface-background); box-shadow: var(--shadow-sm);
+  color: var(--foreground); font: inherit; text-align: left; cursor: pointer;
+  transition: padding .18s ease, border-color .12s ease, background-color .12s ease;
+}
+.metric:hover { border-color: var(--foreground-input-accent); }
+.metric[aria-pressed="true"] { border-color: var(--foreground-ring); background: var(--background-accent-selected); }
+.metric:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.metric-label { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--fs-xs); line-height: 16px; color: var(--foreground-secondary-muted); }
+.metric-value {
+  font-size: var(--fs-2xl); line-height: 28px; font-weight: 600; letter-spacing: -0.3px;
+  color: var(--foreground-primary); font-variant-numeric: tabular-nums; transition: font-size .18s ease, line-height .18s ease;
+}
+.metric.is-attention .metric-value { color: var(--warning-soft-fg); }
+.metric-hint {
+  max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-size: var(--fs-xs); line-height: 16px; color: var(--foreground-muted);
+}
+/* Narrow strip: tighter cards and a smaller number, so four still fit side by side */
+@container (max-width: 720px) {
+  .metric { padding-inline: var(--sp-3); }
+  .metric-value { font-size: var(--fs-xl); }
+}
+/* Condensed: "Label  value" on one line from the left edge; the hint leaves the layout */
+.metrics-condensed .metric { flex-direction: row; align-items: center; justify-content: flex-start; gap: var(--sp-2); padding-block: 0; }
+.metrics-condensed .metric-label { flex: 0 1 auto; min-width: 0; }
+.metrics-condensed .metric-value { flex: none; font-size: var(--fs-sm); line-height: 20px; letter-spacing: 0; }
+.metrics-condensed .metric-hint { display: none; }
+
 .card {
   min-width: 0; background: var(--surface-background);
   border: 1px solid var(--foreground-border); border-radius: var(--radius-lg); box-shadow: var(--shadow-sm);
@@ -567,8 +610,10 @@ svg.icon-sm { width: 12px; height: 12px; }
    (phones in landscape) keep the page-level scroll, where a boxed table would be tiny. */
 @media (min-height: 600px) {
   .list-card {
-    max-height: calc(100vh - 2 * var(--page-gutter) - var(--page-head-h));
-    max-height: calc(100dvh - 2 * var(--page-gutter) - var(--page-head-h));
+    max-height: calc(100vh - 2 * var(--page-gutter) - var(--page-head-h) - var(--metrics-h));
+    max-height: calc(100dvh - 2 * var(--page-gutter) - var(--page-head-h) - var(--metrics-h));
+    /* Grows and shrinks with the metric strip as it condenses */
+    transition: max-height .18s ease;
   }
   .table-scroll {
     flex: 0 1 auto; min-height: 0; overflow: auto; overscroll-behavior: contain;
@@ -606,6 +651,25 @@ svg.icon-sm { width: 12px; height: 12px; }
 .th-label .tag { padding: 0 var(--sp-1-5); font-size: 11px; }
 .th-text { display: inline-flex; align-items: center; gap: var(--sp-1); max-width: 100%; color: var(--foreground); }
 .th-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Tooltip — DS "Tooltip" (Content=Simple). Under its anchor with the arrow on top, or above it
+   with the arrow below; --arrow-x keeps the arrow on the anchor's center. */
+.tooltip {
+  position: fixed; z-index: 80; display: flex; flex-direction: column; align-items: flex-start;
+  max-width: min(320px, calc(100vw - 16px)); pointer-events: none;
+}
+.tooltip[data-placement="top"] { flex-direction: column-reverse; }
+.tooltip-arrow {
+  display: flex; justify-content: center; flex: none; width: 12px; height: 8px;
+  margin: 0 0 -2px calc(var(--arrow-x, 50%) - 6px);
+}
+.tooltip-arrow img { display: block; }
+.tooltip[data-placement="top"] .tooltip-arrow { margin: -2px 0 0 calc(var(--arrow-x, 50%) - 6px); transform: rotate(180deg); }
+.tooltip-body {
+  padding: 6px 10px; border-radius: var(--radius-sm);
+  background: var(--foreground-primary-soft); filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.2));
+  color: var(--foreground-label); font-size: var(--fs-xs); font-weight: 500; line-height: 16px; overflow-wrap: anywhere;
+}
 .th-text .icon-sm { color: var(--foreground-accent); }
 .sort-btn { display: inline-flex; align-items: center; gap: var(--sp-1); min-height: 32px; padding: 0 var(--sp-1); margin-left: calc(var(--sp-1) * -1); border: 0; border-radius: var(--radius-sm); background: none; font-size: var(--fs-xs); font-weight: 500; color: var(--foreground); }
 .sort-btn:hover { background: var(--background-secondary-hover); }
@@ -843,6 +907,7 @@ body.is-resizing { cursor: col-resize; user-select: none; }
 
 @media (prefers-reduced-motion: reduce) {
   .detail, .is-drawer-open .detail, .fold > summary .icon, .glance > summary .icon { transition: none; }
+  .metrics, .metric, .metric-value, .list-card { transition: none; }
 }
 
 /* ==========================================================================

@@ -6,6 +6,7 @@ import type { RespondentRow, features } from '../table/respondentsTable'
 import { Checkbox } from './Checkbox'
 import { Icon } from './Icon'
 import { Tag } from './Tag'
+import { TruncatedText } from './Tooltip'
 
 type Table = ReactTable<typeof features, Respondent>
 type Header = ReturnType<Table['getHeaderGroups']>[number]['headers'][number]
@@ -72,7 +73,7 @@ function HeaderCell({ table, header, row, col }: { table: Table; header: Header;
   if (header.subHeaders.length > 0 && !header.isPlaceholder) {
     return (
       <div {...cellProps} className="th th-group">
-        <span className="th-name"><table.FlexRender header={header} /></span>
+        <TruncatedText className="th-name"><table.FlexRender header={header} /></TruncatedText>
       </div>
     )
   }
@@ -109,7 +110,7 @@ function HeaderCell({ table, header, row, col }: { table: Table; header: Header;
       <span className="th-label">
         {colMeta.screener && <Tag variant="feature">{colMeta.screener}</Tag>}
         <span className="th-text">
-          <span className="th-name"><table.FlexRender header={header} /></span>
+          <TruncatedText className="th-name"><table.FlexRender header={header} /></TruncatedText>
           {sorted && <Icon name={sorted === 'asc' ? 'caretUp' : 'caretDown'} small />}
         </span>
       </span>
@@ -138,7 +139,8 @@ function groupLabel(row: RespondentRow) {
   return value
 }
 
-export function RespondentsTable({ table }: { table: Table }) {
+/** `onScrolledChange` reports whether the table is scrolled away from its top. */
+export function RespondentsTable({ table, onScrolledChange }: { table: Table; onScrolledChange?: (scrolled: boolean) => void }) {
   const meta = table.options.meta!
   // Column widths come from TanStack sizing state. A trailing 1fr track fills any
   // leftover width, so the table still spans the card when columns are narrow.
@@ -151,7 +153,7 @@ export function RespondentsTable({ table }: { table: Table }) {
   const isResizing = table.state.columnResizing.isResizingColumn !== false
 
   return (
-    <div className="table-scroll">
+    <div className="table-scroll" onScroll={(e) => onScrolledChange?.(e.currentTarget.scrollTop > 8)}>
       <div role="table" className={isResizing ? 'tbl is-resizing' : 'tbl'} aria-labelledby="list-h" style={tableStyle}>
         <div role="rowgroup" className="thead-group">
           {/* All header rows share one grid (rows use display: contents), so a group

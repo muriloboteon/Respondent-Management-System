@@ -251,6 +251,35 @@ export function isViewDirty(view: ViewId, f: Filters): boolean {
   return signature(VIEWS[view].tree) !== signature(f.tree) || searchTerms(f.query).length > 0
 }
 
+/* ---------- Metrics (the strip above the table) ---------- */
+
+export type MetricId = 'all' | 'attention' | 'live' | 'done'
+/**
+ * Placeholder metrics: which numbers to show is still to be decided with product, so the
+ * labels are generic (like "Saved view 1"). Each one is a filter on "All respondents", like a
+ * status tab with a count; the filters behind them are only examples. Edit this list to change
+ * the strip; `attention` paints the number in the warning color.
+ */
+export const METRICS: Array<{ id: MetricId; label: string; tree: FilterTree; attention?: boolean }> = [
+  { id: 'all', label: 'All respondents', tree: EMPTY_TREE },
+  { id: 'attention', label: 'Metric 1 (to be defined)', tree: { join: 'and', items: [where('readiness', 'is', 'Something missing')] } },
+  { id: 'live', label: 'Metric 2 (to be defined)', tree: { join: 'and', items: [where('live', 'is', 'Assigned')] } },
+  { id: 'done', label: 'Metric 3 (to be defined)', tree: { join: 'and', items: [where('done', 'eq', '3')] } },
+]
+
+/** A fresh copy of a metric's filters. */
+export function metricTree(id: MetricId): FilterTree {
+  const tree = METRICS.find((m) => m.id === id)!.tree
+  return { join: tree.join, items: tree.items.map(cloneItem) }
+}
+
+/** The metric whose filter is applied as-is on "All respondents", if any. */
+export function activeMetric(view: ViewId, f: Filters): MetricId | null {
+  if (view !== 'all' || searchTerms(f.query).length > 0) return null
+  const current = signature(f.tree)
+  return METRICS.find((m) => signature(m.tree) === current)?.id ?? null
+}
+
 /* ---------- Group by (lives in the filter panel footer) ---------- */
 
 export const GROUP_BY_OPTIONS: Array<[GroupBy, string]> = [

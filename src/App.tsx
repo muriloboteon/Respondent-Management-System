@@ -20,7 +20,8 @@ import { RespondentsTable } from './components/RespondentsTable'
 import { RemoveConfirm } from './components/RemoveConfirm'
 import { ASSIGN_ITEMS, SEGMENT_ITEMS } from './components/respondentActions'
 import { TOTAL_RESPONDENTS, respondents, type GroupBy, type Respondent } from './data/respondents'
-import { EMPTY_FILTERS, matchesFilters, viewTree, type Filters, type ViewId } from './filters/filters'
+import { EMPTY_FILTERS, activeMetric, matchesFilters, metricTree, viewTree, type Filters, type ViewId } from './filters/filters'
+import { MetricStrip } from './components/MetricStrip'
 import { useMediaQuery } from './hooks/useMediaQuery'
 import { useStoredState } from './hooks/useStoredState'
 import { loadColumnSizing, saveColumnSizing } from './table/columnSizingStorage'
@@ -59,6 +60,8 @@ export function App() {
   const [lastAdded, setLastAdded] = useState<{ ids: string[]; hidden: number } | null>(null)
   const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS)
   const [view, setView] = useState<ViewId>('all')
+  /** The table is scrolled away from its top, so the metric strip condenses. */
+  const [tableScrolled, setTableScrolled] = useState(false)
   const [sorting, setSorting] = useState<SortingState>(DEFAULT_SORTING)
   const [grouping, setGrouping] = useState<GroupingState>([])
   const [columnVisibility, setColumnVisibility] = useState<ColumnVisibilityState>(DEFAULT_COLUMN_VISIBILITY)
@@ -218,6 +221,7 @@ export function App() {
   const groupBy = (grouping[0] as GroupBy | undefined) ?? 'none'
   const pickedCount = data.filter((r) => rowSelection[r.id]).length
   const total = TOTAL_RESPONDENTS + data.length - respondents.length
+  const metric = activeMetric(view, filters)
 
   let menuNode = null
   if (menu?.type === 'col') {
@@ -272,7 +276,8 @@ export function App() {
 
   return (
     <div
-      className={[drawerOverlay && 'is-drawer-open', modalOpen && 'is-detail-modal', docked && 'is-docked', panel && 'panel-open', projectNavOpen && 'is-project-nav-open']
+      className={[drawerOverlay && 'is-drawer-open', modalOpen && 'is-detail-modal', docked && 'is-docked', panel && 'panel-open', projectNavOpen && 'is-project-nav-open',
+        tableScrolled && 'metrics-condensed']
         .filter(Boolean)
         .join(' ')}
       style={{ '--detail-w': `${panelWidth}px` } as CSSProperties}
@@ -284,15 +289,23 @@ export function App() {
           <div className="title-group">
             <ProjectSidebarToggle open={projectNavOpen} onToggle={() => setProjectNavOpen(!projectNavOpen)} />
             <h1 id="list-h">Respondents</h1>
-            <span className="count-badge soft" aria-label={`${total.toLocaleString('en-US')} respondents in project`}>
-              {total.toLocaleString('en-US')}
-            </span>
           </div>
           <button type="button" className="btn btn-primary">
             <Icon name="upload" />
             Upload Respondents
           </button>
         </header>
+        <MetricStrip
+          data={data}
+          total={total}
+          active={metric}
+          onSelect={(id) => {
+            // Like a status tab: show "All respondents" with only this metric's filter;
+            // picking the active metric again goes back to everyone.
+            setView('all')
+            setFilters({ query: '', tree: metricTree(metric === id ? 'all' : id) })
+          }}
+        />
         <div className="layout">
           <section className="card list-card" aria-labelledby="list-h">
             <ListHeader
@@ -314,6 +327,7 @@ export function App() {
               pickedCount={pickedCount}
               onRemovePicked={() => askRemove(data.filter((r) => rowSelection[r.id]).map((r) => r.id))}
               onPasteClick={PASTE_IMPORT_ENABLED ? () => setPasteText('') : undefined}
+              metricActive={metric !== null}
               notice={
                 lastAdded && (
                   <div className="notice" role="status">
@@ -335,7 +349,7 @@ export function App() {
                 )
               }
             />
-            <RespondentsTable table={table} />
+            <RespondentsTable table={table} onScrolledChange={setTableScrolled} />
           </section>
 
           {selected && (

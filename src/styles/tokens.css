@@ -26,6 +26,7 @@
   --surface-foreground: var(--black-800);
   --foreground: var(--black-800);
   --foreground-primary: var(--plum-950);
+  --foreground-primary-soft: var(--plum-800);
   --foreground-secondary-muted: var(--black-600);
   --foreground-muted: var(--plum-muted-600);
   --foreground-border: var(--plum-muted-200);
