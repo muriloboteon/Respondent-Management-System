@@ -252,37 +252,52 @@ export function App() {
     const column = table.getColumn(menu.id)
     if (column) {
       const groupKey = column.columnDef.meta!.groupKey
-      const items: MenuItem[] = []
+      const header = String(column.columnDef.header)
+      // The MUI X Data Grid column menu: sorting, pinning, grouping, then columns, each group divided.
+      // Items that don't apply to the column are left out rather than disabled.
+      const groups: MenuItem[][] = []
       if (column.getCanSort()) {
-        items.push(
-          { label: 'Sort ascending', icon: 'caretUp', onSelect: () => column.toggleSorting(false) },
-          { label: 'Sort descending', icon: 'caretDown', onSelect: () => column.toggleSorting(true) },
-        )
+        const sorted = column.getIsSorted()
+        groups.push([
+          ...(sorted !== 'asc' ? [{ label: 'Sort by ASC', icon: 'arrowUp', onSelect: () => column.toggleSorting(false) } as const] : []),
+          ...(sorted !== 'desc' ? [{ label: 'Sort by DESC', icon: 'arrowDown', onSelect: () => column.toggleSorting(true) } as const] : []),
+          ...(sorted ? [{ label: 'Unsort', onSelect: () => column.clearSorting() }] : []),
+        ])
       }
-      items.push(
-        groupKey
-          ? { label: 'Group by this column', separatorBefore: items.length > 0, onSelect: () => setGrouping([groupKey]) }
-          : { label: 'Group by: not available', separatorBefore: items.length > 0, disabled: true },
-      )
       // Respondent can't be pinned or unpinned (it is always pinned).
       if (column.getCanPin() && column.getIsPinned()) {
-        items.push({ label: 'Unpin column', icon: 'pin', separatorBefore: true, onSelect: () => column.pin(false) })
+        groups.push([{ label: 'Unpin', onSelect: () => column.pin(false) }])
       } else if (column.getCanPin()) {
         // Pinned columns, this one included, must fit in the limit; otherwise say how to make room.
         const pinnedWidth = table.getStartVisibleLeafColumns().reduce((w, c) => w + c.getSize(), 0)
-        items.push(
+        groups.push([
           pinnedWidth + column.getSize() <= pinLimit
-            ? { label: 'Pin column', icon: 'pin', separatorBefore: true, onSelect: () => column.pin('start') }
-            : { label: 'Pin column', icon: 'pin', separatorBefore: true, disabled: true, description: 'Unpin a column to pin this one' },
-        )
+            ? { label: 'Pin to left', icon: 'pin', onSelect: () => column.pin('start') }
+            : { label: 'Pin to left', icon: 'pin', disabled: true, description: 'Unpin a column to pin this one' },
+        ])
       }
-      items.push({ label: 'Hide column', onSelect: () => column.toggleVisibility(false) })
+      if (groupKey) {
+        groups.push([
+          grouping[0] === groupKey
+            ? { label: `Stop grouping by ${header}`, icon: 'rows', onSelect: () => setGrouping([]) }
+            : { label: `Group by ${header}`, icon: 'rows', onSelect: () => setGrouping([groupKey]) },
+        ])
+      }
+      groups.push([
+        ...(column.getCanHide() ? [{ label: 'Hide column', icon: 'eyeSlash', onSelect: () => column.toggleVisibility(false) } as const] : []),
+        // The Columns panel lives in the list header; its button opens it.
+        {
+          label: 'Manage columns',
+          icon: 'columns',
+          onSelect: () => document.querySelector<HTMLButtonElement>('[aria-controls="panel-cols"]')?.click(),
+        },
+      ])
+      const items = groups.flatMap((group, g) => group.map((item, i) => ({ ...item, separatorBefore: g > 0 && i === 0 })))
       menuNode = (
         <FloatingMenu
           anchorKey={`col:${column.id}`}
-          label={`Column options: ${String(column.columnDef.header)}`}
+          label={`Column options: ${header}`}
           align="end"
-          width={200}
           items={items}
           onClose={() => setMenu(null)}
         />

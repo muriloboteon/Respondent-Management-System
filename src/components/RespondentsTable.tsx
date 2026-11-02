@@ -1,5 +1,5 @@
 import type { ReactTable } from '@tanstack/react-table'
-import { useLayoutEffect, useRef, useState, type CSSProperties, type KeyboardEvent, type UIEvent } from 'react'
+import { useLayoutEffect, useRef, useState, type CSSProperties, type KeyboardEvent, type MouseEvent, type UIEvent } from 'react'
 import type { Respondent } from '../data/respondents'
 import { SEGMENTS } from '../data/respondents'
 import type { RespondentRow, features } from '../table/respondentsTable'
@@ -13,7 +13,7 @@ type Header = ReturnType<Table['getHeaderGroups']>[number]['headers'][number]
 /** Tooltip on segment column names, which otherwise look like any other column. */
 const SEGMENT_HINT = 'Segment column · Automatically created from your segments'
 
-function ariaSort(sorted: false | 'asc' | 'desc') {
+function ariaSort(sorted: false | 'asc' | 'desc'): 'ascending' | 'descending' | 'none' {
   return sorted === 'asc' ? 'ascending' : sorted === 'desc' ? 'descending' : 'none'
 }
 
@@ -87,30 +87,55 @@ function stickyProps(base: string, sticky: StickyPos | undefined, isRowHeader: b
   }
 }
 
-/** One header cell: sorting, the column menu and resizing. */
+/** The sort arrow after a header's title. Unsorted, it shows the next direction (ascending), faded, on hover. */
+function SortIcon({ sorted }: { sorted: false | 'asc' | 'desc' }) {
+  return (
+    <span className="th-sort-icon" aria-hidden="true">
+      <Icon name={sorted === 'desc' ? 'arrowDownBold' : 'arrowUpBold'} />
+    </span>
+  )
+}
+
+/**
+ * One header cell: sorting, the column menu and resizing. Works like the MUI X Data Grid:
+ * a click anywhere on the header sorts (ascending, descending, then unsorted).
+ */
 function HeaderCell({ table, header, sticky }: { table: Table; header: Header; sticky?: StickyPos }) {
   const meta = table.options.meta!
   const column = header.column
   const colMeta = column.columnDef.meta!
   const sorted = column.getIsSorted()
-  const cellProps = { role: 'columnheader' }
+  const canSort = column.getCanSort()
+  const isRowHeader = column.id === ROW_HEADER_ID
+  const base = ['th', colMeta.icon && 'th-icon-col', canSort && 'th-sortable', sorted && 'th-sorted'].filter(Boolean).join(' ')
+  const cellProps = {
+    role: 'columnheader',
+    'aria-sort': canSort ? ariaSort(sorted) : undefined,
+    ...stickyProps(base, sticky, isRowHeader),
+    onClick: canSort
+      ? (e: MouseEvent) => {
+          // The select-all checkbox, the menu button and the resize handle do their own thing.
+          if ((e.target as Element).closest('.checkbox, .icon-btn, .resize-handle')) return
+          table.setSorting(sorted === 'desc' ? [] : [{ id: column.id, desc: sorted === 'asc' }])
+        }
+      : undefined,
+  }
 
-  if (column.id === ROW_HEADER_ID) {
+  if (isRowHeader) {
     return (
-      <div {...cellProps} {...stickyProps('th', sticky, true)} aria-sort={ariaSort(sorted)}>
+      <div {...cellProps}>
         <Checkbox
           checked={table.getIsAllRowsSelected()}
           indeterminate={table.getIsSomeRowsSelected()}
           onChange={table.getToggleAllRowsSelectedHandler()}
           aria-label="Select all shown respondents"
         />
-        <button
-          type="button"
-          className="sort-btn"
-          onClick={() => table.setSorting([{ id: column.id, desc: sorted === 'asc' }])}
-        >
-          <table.FlexRender header={header} />
-          {sorted && <Icon name={sorted === 'asc' ? 'caretUp' : 'caretDown'} small />}
+        {/* No click handler of its own: the click reaches the header's. */}
+        <button type="button" className="th-label">
+          <span className="th-text">
+            <table.FlexRender header={header} />
+            <SortIcon sorted={sorted} />
+          </span>
         </button>
         <ResizeHandle table={table} header={header} />
       </div>
@@ -118,39 +143,40 @@ function HeaderCell({ table, header, sticky }: { table: Table; header: Header; s
   }
 
   const menuOpen = meta.menu?.type === 'col' && meta.menu.id === column.id
+  const text = (
+    <span className="th-text">
+      {column.getIsPinned() && (
+        <IconLabel className="th-pin" label="Pinned column"><Icon name="pin" small /></IconLabel>
+      )}
+      {colMeta.icon ? (
+        <IconLabel className="th-icon" label={String(column.columnDef.header)}><Icon name={colMeta.icon} /></IconLabel>
+      ) : (
+        <TruncatedText className="th-name" hint={colMeta.kind === 'seg' ? SEGMENT_HINT : undefined}>
+          <table.FlexRender header={header} />
+        </TruncatedText>
+      )}
+      {colMeta.kind === 'seg' && <span className="sr-only">{SEGMENT_HINT}</span>}
+      {canSort && <SortIcon sorted={sorted} />}
+    </span>
+  )
   return (
-    <div
-      {...cellProps}
-      {...stickyProps(colMeta.icon ? 'th th-icon-col' : 'th', sticky, false)}
-      aria-sort={column.getCanSort() ? ariaSort(sorted) : undefined}
-    >
-      <span className="th-label">
-        <span className="th-text">
-          {column.getIsPinned() && (
-            <IconLabel className="th-pin" label="Pinned column"><Icon name="pin" small /></IconLabel>
-          )}
-          {colMeta.icon ? (
-            <IconLabel className="th-icon" label={String(column.columnDef.header)}><Icon name={colMeta.icon} /></IconLabel>
-          ) : (
-            <TruncatedText className="th-name" hint={colMeta.kind === 'seg' ? SEGMENT_HINT : undefined}>
-              <table.FlexRender header={header} />
-            </TruncatedText>
-          )}
-          {colMeta.kind === 'seg' && <span className="sr-only">{SEGMENT_HINT}</span>}
-          {sorted && <Icon name={sorted === 'asc' ? 'caretUp' : 'caretDown'} small />}
-        </span>
-      </span>
+    <div {...cellProps}>
+      {canSort ? (
+        <button type="button" className="th-label">{text}</button>
+      ) : (
+        <span className="th-label">{text}</span>
+      )}
       {colMeta.pii && <span className="th-pii" title="Personally identifiable information">PII</span>}
       <button
         type="button"
-        className="icon-btn"
+        className="icon-btn th-menu"
         data-menu-anchor={`col:${column.id}`}
         aria-haspopup="menu"
         aria-expanded={menuOpen}
         aria-label={`Column options: ${String(column.columnDef.header)}`}
         onClick={() => meta.onToggleMenu({ type: 'col', id: column.id })}
       >
-        <Icon name="caretDown" />
+        <Icon name="dotsVerticalBold" />
       </button>
       <ResizeHandle table={table} header={header} />
     </div>

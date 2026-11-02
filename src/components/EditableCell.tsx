@@ -158,7 +158,7 @@ function OptionsMenu({
   const [options] = useState(() => (typeof optionsProp === 'function' ? optionsProp() : optionsProp))
 
   useDismiss(true, `.cell-menu, [data-menu-anchor="${anchorKey}"]`, (reason) => onClose(reason === 'escape'))
-  useAnchoredPosition(ref, anchorKey, 'start')
+  useAnchoredPosition(ref, anchorKey, 'start', true)
   useLayoutEffect(() => {
     if (search) {
       // Focus stays in the search field; the current choice is scrolled to the middle of the list.
@@ -224,7 +224,6 @@ function OptionsMenu({
       className={desc ? 'menu-item has-desc' : 'menu-item'}
       onClick={() => pick(next, checked)}
     >
-      <span className="menu-check">{checked && <Icon name="check" small />}</span>
       {desc ? (
         <span className="menu-item-text">
           {text}
@@ -233,6 +232,7 @@ function OptionsMenu({
       ) : (
         text
       )}
+      <span className="menu-check">{checked && <Icon name="check" />}</span>
     </button>
   )
 

@@ -150,14 +150,14 @@ function RespondentCell({ row, meta }: { row: RespondentRow; meta: RespondentTab
       </span>
       <button
         type="button"
-        className="icon-btn"
+        className="icon-btn row-menu"
         data-menu-anchor={`row:${r.id}`}
         aria-haspopup="menu"
         aria-expanded={menuOpen}
         aria-label={`Actions for ${r.name}, ${r.pid}`}
         onClick={() => meta.onToggleMenu({ type: 'row', id: r.id })}
       >
-        <Icon name="dots" />
+        <Icon name="dotsVerticalBold" />
       </button>
     </>
   )

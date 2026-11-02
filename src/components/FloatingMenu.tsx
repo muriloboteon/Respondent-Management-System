@@ -25,7 +25,12 @@ export function anchorFor(key: string) {
  * Keeps a fixed-position layer under (or, when there is no room, above) the element
  * marked `data-menu-anchor={anchorKey}`, following scrolls and resizes.
  */
-export function useAnchoredPosition(ref: RefObject<HTMLElement | null>, anchorKey: string, align: 'start' | 'end') {
+export function useAnchoredPosition(
+  ref: RefObject<HTMLElement | null>,
+  anchorKey: string,
+  align: 'start' | 'end',
+  matchWidth = false,
+) {
   useLayoutEffect(() => {
     const layer = ref.current
     if (!layer) return
@@ -33,6 +38,8 @@ export function useAnchoredPosition(ref: RefObject<HTMLElement | null>, anchorKe
       const anchor = anchorFor(anchorKey)
       if (!anchor) return
       const a = anchor.getBoundingClientRect()
+      // The layer's CSS min-width still applies, so narrow anchors don't squeeze it.
+      if (matchWidth) layer.style.width = `${a.width}px`
       const vw = document.documentElement.clientWidth
       const vh = window.innerHeight
       let left = align === 'end' ? a.right - layer.offsetWidth : a.left
@@ -49,7 +56,7 @@ export function useAnchoredPosition(ref: RefObject<HTMLElement | null>, anchorKe
       window.removeEventListener('resize', place)
       window.removeEventListener('scroll', place, true)
     }
-  }, [ref, anchorKey, align])
+  }, [ref, anchorKey, align, matchWidth])
 }
 
 /**

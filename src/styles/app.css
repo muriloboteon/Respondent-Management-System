@@ -701,10 +701,20 @@ svg.icon-sm { width: 12px; height: 12px; }
   color: var(--foreground-label); font-size: var(--fs-xs); font-weight: 500; line-height: 16px; overflow-wrap: anywhere;
 }
 .th-text .icon-sm { color: var(--foreground-accent); }
-.sort-btn { display: inline-flex; align-items: center; gap: var(--sp-1); min-height: 32px; padding: 0 var(--sp-1); margin-left: calc(var(--sp-1) * -1); border: 0; border-radius: var(--radius-sm); background: none; font-size: var(--fs-xs); font-weight: 500; color: var(--foreground); }
-.sort-btn:hover { background: var(--background-secondary-hover); }
-.sort-btn .icon-sm { color: var(--foreground-accent); }
 .th .icon-btn { width: 28px; height: 28px; }
+/* Sorting and the column menu work like the MUI X Data Grid: a click on the header sorts; the
+   arrow and the ⋮ button take no room until the header is hovered or focused. A sorted column
+   keeps its arrow and an open menu keeps its button. */
+.th-sortable { cursor: pointer; }
+button.th-label { padding: 0; border: 0; background: none; font: inherit; color: inherit; text-align: left; cursor: inherit; }
+/* The hover preview is a solid muted gray, not a faded arrow, so it keeps 3:1 contrast on the header */
+.th-sort-icon { display: inline-flex; flex: none; width: 0; overflow: hidden; opacity: 0; color: var(--foreground-secondary-muted); transition: opacity .15s ease; }
+.th-sortable:hover .th-sort-icon, .th-sortable:focus-within .th-sort-icon { width: auto; opacity: 1; }
+.th-sorted .th-sort-icon { width: auto; opacity: 1; color: var(--foreground); }
+.th .th-menu { flex: none; width: 0; overflow: hidden; opacity: 0; transition: opacity .15s ease; }
+.th:hover .th-menu, .th:focus-within .th-menu, .th .th-menu[aria-expanded="true"] { width: 28px; opacity: 1; }
+/* No hover on touch screens: the button stays */
+@media (hover: none) { .th .th-menu { width: 28px; opacity: 1; } }
 
 /* Rows stay one line tall: cell content sits side by side and is clipped or truncated */
 .td { --cell-py: var(--sp-2); --cell-px: var(--sp-4); display: flex; flex-direction: row; align-items: center; gap: var(--sp-1-5); min-width: 0; overflow: hidden; white-space: nowrap; padding: var(--cell-py) var(--cell-px); }
@@ -752,6 +762,13 @@ svg.icon-sm { width: 12px; height: 12px; }
 }
 .who-name:hover { color: var(--foreground-accent); text-decoration: underline; text-underline-offset: 2px; }
 .who .tag { flex: none; }
+/* Row actions: the ⋮ shows on row hover or keyboard focus, on the open and picked rows, and while
+   its menu is open. Hidden, it keeps its room so the name doesn't reflow on hover. */
+.row-menu { opacity: 0; transition: opacity .15s ease; }
+.tr:hover .row-menu, .tr:focus-within .row-menu, .tr.is-selected .row-menu, .tr.is-picked .row-menu,
+.row-menu[aria-expanded="true"] { opacity: 1; }
+/* No hover on touch screens: the button stays */
+@media (hover: none) { .row-menu { opacity: 1; } }
 .cell-main { font-weight: 400; color: var(--foreground); }.cell-sub { font-size: var(--fs-xs); line-height: 16px; color: var(--foreground-secondary-muted); }
 .cell-dash { color: var(--foreground-muted); }
 .chip-list { display: flex; flex-wrap: wrap; gap: var(--sp-1); }
@@ -786,11 +803,12 @@ svg.icon-sm { width: 12px; height: 12px; }
 .cell-menu { min-width: 160px; }
 .cell-menu label.menu-item { cursor: pointer; }
 /* Searchable cell menu: a fixed-height list scrolls between the search field and the clearing option */
-.cell-menu-search { width: 300px; }
+.cell-menu-search { min-width: 300px; }
 .cell-menu-search > .field { flex: none; margin-bottom: var(--sp-1); }
 .cell-menu-list { position: relative; height: min(320px, 50vh); overflow-y: auto; }
 .menu-empty { margin: 0; padding: var(--sp-3) var(--sp-2-5); font-size: var(--fs-sm); color: var(--foreground-secondary-muted); }
-.menu-check { display: inline-flex; width: 16px; flex: none; color: var(--foreground-accent); }
+.menu-check { display: inline-flex; width: 16px; flex: none; margin-left: auto; padding-left: var(--sp-2); box-sizing: content-box; color: var(--foreground-accent); }
+.menu-item.has-desc > .menu-check { margin-top: 2px; }
 @media (pointer: coarse) {
   .cell-edit-trail { opacity: 1; }
 }
