@@ -1,32 +1,30 @@
 import type { ReactTable } from '@tanstack/react-table'
-import { Fragment, useRef, type ReactNode } from 'react'
+import { useRef, type ReactNode } from 'react'
 import { projectCount, type Respondent } from '../data/respondents'
 import {
-  EMPTY_TREE,
   VIEWS,
-  activeItems,
-  isViewDirty,
-  isComplete,
-  pruneEmpty,
+  activeConditions,
+  applyCondition,
   searchTerms,
-  summarize,
+  type Condition,
   type Filters,
   type ViewId,
 } from '../filters/filters'
 import { useDismiss } from '../hooks/useDismiss'
 import type { features } from '../table/respondentsTable'
 import { ColumnsPanel } from './ColumnsPanel'
-import { FilterPanel } from './FilterPanel'
+import { FilterChip, FilterPopover, type FilterLayer } from './FilterChips'
 import { BulkActions } from './BulkActions'
 import { Icon } from './Icon'
 
 type Table = ReactTable<typeof features, Respondent>
-export type Panel = 'filter' | 'cols' | null
+export type Panel = 'cols' | null
 
 const fmt = (n: number) => n.toLocaleString('en-US')
 
 /** The saved views band is hidden for now to give the table more room. */
 const SHOW_SAVED_VIEWS = false
+const ADD_FILTER_ANCHOR = 'filter:add'
 
 interface Props {
   table: Table
@@ -45,47 +43,58 @@ interface Props {
   onPasteClick?: () => void
   /** Confirmation shown after adding respondents. */
   notice?: ReactNode
-  /** A metric above the table set the filters, so they are not "unsaved changes" to the view. */
-  metricActive?: boolean
+  /** The open filter popover; the column menu in the table can open one too. */
+  filterLayer: FilterLayer
+  onFilterLayerChange: (layer: FilterLayer) => void
 }
 
-export function ListHeader({ table, total, filters, onFiltersChange, view, onViewChange, panel, onPanelChange, pickedCount, onRemovePicked, onPasteClick, notice, metricActive = false }: Props) {
-  const filterBtn = useRef<HTMLButtonElement>(null)
+export function ListHeader({ table, total, filters, onFiltersChange, view, onViewChange, panel, onPanelChange, pickedCount, onRemovePicked, onPasteClick, notice, filterLayer, onFilterLayerChange: setFilterLayer }: Props) {
+  const addBtn = useRef<HTMLButtonElement>(null)
   const colsBtn = useRef<HTMLButtonElement>(null)
+  const searchInput = useRef<HTMLInputElement>(null)
 
-  // Closing the filter panel drops rows that never got a property.
   const setPanel = (next: Panel) => {
-    if (panel === 'filter' && next !== 'filter') {
-      const pruned = pruneEmpty(filters.tree)
-      if (pruned !== filters.tree) onFiltersChange({ tree: pruned })
-    }
+    setFilterLayer(null)
     onPanelChange(next)
   }
-
-  useDismiss(panel !== null, '.pop-wrap, .chips-row', (reason) => {
-    const trigger = panel === 'filter' ? filterBtn.current : colsBtn.current
-    setPanel(null)
-    if (reason === 'escape') trigger?.focus()
-  })
-
-  const items = activeItems(filters.tree)
-  const terms = searchTerms(filters.query)
-  const hasFilters = items.length > 0 || terms.length > 0
-  const resultCount = projectCount(table.getFilteredRowModel().rows.length, table.options.data.length, total)
-  const dirty = !metricActive && isViewDirty(view, filters)
-  const filterCount = items.length
-  const togglePanel = (p: Exclude<Panel, null>) => setPanel(panel === p ? null : p)
-  // Removing a chip unmounts it, so focus moves to the Filters button.
-  const focusFilters = () => filterBtn.current?.focus()
-  const removeItem = (id: string) => {
-    onFiltersChange({ tree: { ...filters.tree, items: filters.tree.items.filter((item) => item.id !== id) } })
-    focusFilters()
+  const openFilterLayer = (next: NonNullable<FilterLayer>) => {
+    onPanelChange(null)
+    setFilterLayer(JSON.stringify(filterLayer) === JSON.stringify(next) ? null : next)
   }
 
+  useDismiss(panel !== null, '.pop-wrap', (reason) => {
+    setPanel(null)
+    if (reason === 'escape') colsBtn.current?.focus()
+  })
+
+  const conditions = filters.conditions
+  const terms = searchTerms(filters.query)
+  const hasFilters = activeConditions(conditions).length > 0 || terms.length > 0
+  const resultCount = projectCount(table.getFilteredRowModel().rows.length, table.options.data.length, total)
+  const togglePanel = (p: Exclude<Panel, null>) => setPanel(panel === p ? null : p)
+  const setConditions = (next: Condition[]) => onFiltersChange({ conditions: next })
+
+  // "Add filter" / "Apply" in the popover: one chip per column, so a column already filtered is replaced.
+  const applyFilter = (next: Condition) => setConditions(applyCondition(conditions, next))
+  // Removing a chip unmounts it, so focus moves to the "+ Add filter" button.
+  const removeFilter = (id: string) => {
+    setConditions(conditions.filter((c) => c.id !== id))
+    if (filterLayer?.kind === 'edit' && filterLayer.id === id) setFilterLayer(null)
+    addBtn.current?.focus()
+  }
+  const editing = filterLayer?.kind === 'edit' ? conditions.find((c) => c.id === filterLayer.id) : undefined
+  // Where the popover opens: under "+ Add filter", under the chip being edited, or under a column's
+  // menu button (at the header's right edge, so the box lines up with its right side).
+  const popover =
+    filterLayer?.kind === 'add' ? { anchorKey: ADD_FILTER_ANCHOR, align: 'start' as const }
+    : filterLayer?.kind === 'column' ? { anchorKey: filterLayer.anchorKey, align: 'end' as const, startProp: filterLayer.prop }
+    : editing ? { anchorKey: `chip:${editing.id}`, align: 'start' as const, editing }
+    : null
+
   return (
-    // Two bands split by full-width dividers: saved views (hidden for now), and the filters band (applied
-    // filters, then search, Filters and Columns). While rows are picked, bulk actions take the
-    // place of the applied filters. The import notice joins as an extra band.
+    // Two bands split by full-width dividers: saved views (hidden for now), and the filters band, one row:
+    // the filter chips and "+ Add filter" on the left; the result count, search and Columns on the right.
+    // While rows are picked, bulk actions take the place of the filters. The import notice joins as an extra band.
     // The page title sits above the card.
     <div className="list-head">
       {SHOW_SAVED_VIEWS && (
@@ -107,93 +116,39 @@ export function ListHeader({ table, total, filters, onFiltersChange, view, onVie
         {pickedCount > 0 ? (
           <BulkActions count={pickedCount} onClear={() => table.resetRowSelection(true)} onRemove={onRemovePicked} />
         ) : (
-        <>
-        {hasFilters && (
-        <div className="chips-row" role="group" aria-label="Active filters">
-          {terms.length > 0 && (
-            <span className="chip">
-              <span className="k">Search</span>
-              <span className="op">{terms.length > 1 ? 'matches any of' : 'contains'}</span>
-              <span className="v">{terms.length > 1 ? `${terms.length} terms` : filters.query.trim()}</span>
-              <button
-                type="button"
-                aria-label="Remove search"
-                onClick={() => {
-                  onFiltersChange({ query: '' })
-                  focusFilters()
-                }}
-              >
-                <Icon name="x" small />
-              </button>
-            </span>
-          )}
-          {items.map((item, i) => {
-            const join = i > 0 && filters.tree.join === 'or' && <span className="chip-join">or</span>
-            if (item.kind === 'group') {
-              // A group chip spells out its conditions ("A or B"), truncated with the full text on hover.
-              const parts = item.conditions.filter(isComplete).map(summarize)
-              const text = parts.map((s) => `${s.prop} ${s.op} ${s.val}`.trim()).join(` ${item.join} `)
-              return (
-                <Fragment key={item.id}>
-                  {join}
-                  <span className="chip chip-group">
-                    <button type="button" className="chip-body chip-text" title={text} aria-label={`Edit filter group: ${text}`} onClick={() => setPanel('filter')}>
-                      {parts.map((s, j) => (
-                        <Fragment key={j}>
-                          {j > 0 && <span className="chip-or">{item.join}</span>}
-                          <span className="k">{s.prop}</span> {s.op} <span className="v">{s.val}</span>
-                        </Fragment>
-                      ))}
-                    </button>
-                    <button type="button" aria-label="Remove filter group" onClick={() => removeItem(item.id)}>
-                      <Icon name="x" small />
-                    </button>
-                  </span>
-                </Fragment>
-              )
-            }
-            const s = summarize(item)
-            return (
-              <Fragment key={item.id}>
-                {join}
-                <span className="chip">
-                  <button type="button" className="chip-body" aria-label={`Edit filter: ${s.prop} ${s.op} ${s.val}`} onClick={() => setPanel('filter')}>
-                    <span className="k">{s.prop}</span>
-                    <span className="op">{s.op}</span>
-                    {s.val && <span className="v">{s.val}</span>}
-                  </button>
-                  <button type="button" aria-label={`Remove filter ${s.prop}`} onClick={() => removeItem(item.id)}>
-                    <Icon name="x" small />
-                  </button>
-                </span>
-              </Fragment>
-            )
-          })}
-        </div>
-        )}
-
-        {(hasFilters || dirty) && (
-          <div className="band-end">
-            {/* The result of the filters, next to them; announced by the status region above */}
-            {hasFilters && (
-              <span className="result-count" aria-hidden="true">
-                <strong>{fmt(resultCount)}</strong> of {fmt(total)} respondents
-              </span>
-            )}
-            {dirty && (
-              <span className="unsaved">
-                <span className="dot" aria-hidden="true" />
-                Unsaved changes
-                <button type="button" className="btn-link">Save as view</button>
-              </span>
-            )}
-            {hasFilters && (
+          // Filters first, in reading order: the applied chips, then "+ Add filter". A chip is only
+          // added once its values are chosen and "Add filter" is clicked in the popover.
+          <div className="chips-row" role="group" aria-label="Filters">
+            {conditions.map((c) => (
+              <FilterChip
+                key={c.id}
+                condition={c}
+                open={filterLayer?.kind === 'edit' && filterLayer.id === c.id}
+                onEdit={() => openFilterLayer({ kind: 'edit', id: c.id })}
+                onRemove={() => removeFilter(c.id)}
+              />
+            ))}
+            <button
+              ref={addBtn}
+              type="button"
+              className="btn btn-sm btn-ghost add-filter"
+              data-menu-anchor={ADD_FILTER_ANCHOR}
+              aria-haspopup="dialog"
+              aria-expanded={filterLayer?.kind === 'add'}
+              onClick={() => openFilterLayer({ kind: 'add' })}
+            >
+              <Icon name="plus" />
+              Add filter
+            </button>
+            {/* Clears the chips it sits next to; the search keeps its own × */}
+            {activeConditions(conditions).length > 0 && (
               <button
                 type="button"
                 className="btn-link muted"
                 onClick={() => {
-                  onFiltersChange({ query: '', tree: EMPTY_TREE })
-                  focusFilters()
+                  setConditions([])
+                  setFilterLayer(null)
+                  addBtn.current?.focus()
                 }}
               >
                 Clear all
@@ -201,51 +156,53 @@ export function ListHeader({ table, total, filters, onFiltersChange, view, onVie
             )}
           </div>
         )}
-        </>
+        {popover && (
+          <FilterPopover
+            key={JSON.stringify(filterLayer)}
+            {...popover}
+            filters={filters}
+            data={table.options.data}
+            toProject={(n) => projectCount(n, table.options.data.length, total)}
+            onApply={applyFilter}
+            onClose={() => setFilterLayer(null)}
+          />
         )}
 
         <div className="tools">
+          {/* The result of the filters and the search; announced by the status region above */}
+          {pickedCount === 0 && hasFilters && (
+            <span className="band-end">
+              <span className="result-count" aria-hidden="true">
+                <strong>{fmt(resultCount)}</strong> of {fmt(total)} respondents
+              </span>
+            </span>
+          )}
           <label className="field field-sm search">
             <Icon name="search" />
             <span className="sr-only">Search respondents</span>
             <input
+              ref={searchInput}
               type="search"
               placeholder="Search respondents"
               title="Search by name, email or ID. Separate several with commas."
               value={filters.query}
               onChange={(e) => onFiltersChange({ query: e.target.value })}
             />
-          </label>
-
-          <div className="pop-wrap">
-            <button
-              ref={filterBtn}
-              type="button"
-              aria-haspopup="dialog"
-              aria-expanded={panel === 'filter'}
-              aria-controls="panel-filter"
-              className="btn btn-sm btn-outline"
-              onClick={() => togglePanel('filter')}
-            >
-              <Icon name="sliders" />
-              Filters
-              {filterCount > 0 && <span className="count-badge">{filterCount}</span>}
-            </button>
-            {panel === 'filter' && (
-              <div className="panel filter-panel" role="dialog" aria-label="Filters" id="panel-filter">
-                <FilterPanel
-                  tree={filters.tree}
-                  onTreeChange={(tree) => onFiltersChange({ tree })}
-                  data={table.options.data}
-                  resultCount={resultCount}
-                  onDone={() => {
-                    setPanel(null)
-                    filterBtn.current?.focus()
-                  }}
-                />
-              </div>
+            {/* Our own clear button: not every browser shows one in a search field */}
+            {filters.query && (
+              <button
+                type="button"
+                className="search-clear"
+                aria-label="Clear search"
+                onClick={() => {
+                  onFiltersChange({ query: '' })
+                  searchInput.current?.focus()
+                }}
+              >
+                <Icon name="x" small />
+              </button>
             )}
-          </div>
+          </label>
 
           <div className="pop-wrap">
             <button

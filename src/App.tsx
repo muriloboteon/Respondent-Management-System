@@ -13,6 +13,7 @@ import { DETAIL_MAX_W, DETAIL_MIN_W, DetailPanel } from './components/DetailPane
 import { Icon } from './components/Icon'
 import { PasteImportDialog } from './components/PasteImportDialog'
 import { FloatingMenu, type MenuItem } from './components/FloatingMenu'
+import type { FilterLayer } from './components/FilterChips'
 import { ListHeader, type Panel } from './components/ListHeader'
 import { OrgRail } from './components/OrgRail'
 import { ProjectSidebar, ProjectSidebarToggle } from './components/ProjectSidebar'
@@ -22,7 +23,19 @@ import { SelfCaptureHistoryDialog } from './components/SelfCaptureHistoryDialog'
 import { TechCheckDialog } from './components/TechCheckDialog'
 import { ASSIGN_ITEMS, SEGMENT_ITEMS } from './components/respondentActions'
 import { TOTAL_RESPONDENTS, respondents, type Respondent } from './data/respondents'
-import { EMPTY_FILTERS, activeMetric, matchesFilters, metricTree, viewTree, type Filters, type ViewId } from './filters/filters'
+import {
+  EMPTY_FILTERS,
+  activeMetric,
+  applyCondition,
+  cellFilterValues,
+  matchesFilters,
+  metricConditions,
+  newCondition,
+  viewConditions,
+  type Filters,
+  type ViewId,
+} from './filters/filters'
+import { propertyForColumn } from './filters/properties'
 import { MetricStrip } from './components/MetricStrip'
 import { useMediaQuery } from './hooks/useMediaQuery'
 import { useStoredState } from './hooks/useStoredState'
@@ -89,6 +102,8 @@ export function App() {
   const [projectNavOpen, setProjectNavOpen] = useStoredState('respondent-hub:project-nav-open', true, isBoolean)
   const [panel, setPanel] = useState<Panel>(null)
   const [menu, setMenu] = useState<MenuState>(null)
+  /** The filter popover; the list header and the column menu both open it. */
+  const [filterLayer, setFilterLayer] = useState<FilterLayer>(null)
   /** A row whose name should turn into a text field ("Rename" in the row menu). */
   const [renamingId, setRenamingId] = useState<string | null>(null)
   /** The "more actions" menu next to Upload Respondents. */
@@ -151,7 +166,17 @@ export function App() {
       onOpen: openDetail,
       onToggleMenu: (next) => {
         setPanel(null)
+        setFilterLayer(null)
         setMenu((cur) => (cur && cur.type === next.type && cur.id === next.id ? null : next))
+      },
+      onCellMenu: (rowId, columnId) => {
+        const prop = propertyForColumn(columnId)
+        const r = data.find((x) => x.id === rowId)
+        if (!prop || !r || !cellFilterValues(prop, r).length) return false
+        setPanel(null)
+        setFilterLayer(null)
+        setMenu({ type: 'cell', id: rowId, col: columnId })
+        return true
       },
       onUpdate: (id, patch) => setData((prev) => prev.map((r) => (r.id === id ? { ...r, ...patch } : r))),
       onPlay: (id, kind) => {
@@ -252,7 +277,7 @@ export function App() {
     const column = table.getColumn(menu.id)
     if (column) {
       const header = String(column.columnDef.header)
-      // The MUI X Data Grid column menu: sorting, pinning, moving, then columns, each group divided.
+      // The MUI X Data Grid column menu: sorting, filtering, pinning, moving, then columns, each group divided.
       // Items that don't apply to the column are left out rather than disabled.
       const groups: MenuItem[][] = []
       if (column.getCanSort()) {
@@ -261,6 +286,20 @@ export function App() {
           ...(sorted !== 'asc' ? [{ label: 'Sort by ASC', icon: 'arrowUp', onSelect: () => column.toggleSorting(false) } as const] : []),
           ...(sorted !== 'desc' ? [{ label: 'Sort by DESC', icon: 'arrowDown', onSelect: () => column.toggleSorting(true) } as const] : []),
           ...(sorted ? [{ label: 'Unsort', onSelect: () => column.clearSorting() }] : []),
+        ])
+      }
+      // Opens the filter popover on this column's values, under the header's menu button.
+      const filterProp = propertyForColumn(column.id)
+      if (filterProp) {
+        groups.push([
+          {
+            label: 'Filter…',
+            icon: 'funnel',
+            onSelect: () => {
+              setPanel(null)
+              setFilterLayer({ kind: 'column', prop: filterProp.id, anchorKey: `col:${column.id}` })
+            },
+          },
         ])
       }
       // Respondent can't be pinned or unpinned (it is always pinned).
@@ -322,6 +361,35 @@ export function App() {
             { label: 'Export to CSV', icon: 'download', separatorBefore: true },
             { label: 'Remove from project', icon: 'trash', danger: true, separatorBefore: true, onSelect: () => askRemove([r.id]) },
           ]}
+        />
+      )
+    }
+  } else if (menu?.type === 'cell') {
+    // Right-click (or the menu key) on a cell: filter by its value, or leave it out, in one step.
+    const r = data.find((x) => x.id === menu.id)
+    const prop = propertyForColumn(menu.col)
+    if (r && prop) {
+      const text = prop.type === 'text'
+      const filterBy = (value: string, exclude: boolean) =>
+        setFilters((prev) => ({
+          ...prev,
+          conditions: applyCondition(prev.conditions, newCondition(prop.id, [value], text ? (exclude ? 'not_contains' : 'contains') : exclude ? 'is_not' : 'is')),
+        }))
+      // A multi-value cell offers its first tags.
+      const items: MenuItem[] = cellFilterValues(prop, r)
+        .slice(0, 3)
+        .flatMap(([value, label], i) => [
+          { label: `Filter by “${label}”`, icon: 'funnel', separatorBefore: i > 0, onSelect: () => filterBy(value, false) },
+          { label: `Exclude “${label}”`, icon: 'eyeSlash', onSelect: () => filterBy(value, true) },
+        ])
+      menuNode = (
+        <FloatingMenu
+          anchorKey={`ctx:${r.id}:${menu.col}`}
+          label={`Filter by this ${prop.label} value`}
+          align="start"
+          width={240}
+          onClose={() => setMenu(null)}
+          items={items}
         />
       )
     }
@@ -390,7 +458,7 @@ export function App() {
             // Like a status tab: show "All respondents" with only this metric's filter;
             // picking the active metric again goes back to everyone.
             setView('all')
-            setFilters({ query: '', tree: metricTree(metric === id ? 'all' : id) })
+            setFilters({ query: '', conditions: metricConditions(metric === id ? 'all' : id) })
           }}
         />
         <div className="layout">
@@ -403,17 +471,21 @@ export function App() {
               view={view}
               onViewChange={(v) => {
                 setView(v)
-                setFilters({ query: '', tree: viewTree(v) })
+                setFilters({ query: '', conditions: viewConditions(v) })
               }}
               panel={panel}
               onPanelChange={(p) => {
                 setMenu(null)
                 setPanel(p)
               }}
+              filterLayer={filterLayer}
+              onFilterLayerChange={(layer) => {
+                setMenu(null)
+                setFilterLayer(layer)
+              }}
               pickedCount={pickedCount}
               onRemovePicked={() => askRemove(data.filter((r) => rowSelection[r.id]).map((r) => r.id))}
               onPasteClick={PASTE_IMPORT_ENABLED ? () => setPasteText('') : undefined}
-              metricActive={metric !== null}
               notice={
                 lastAdded && (
                   <div className="notice" role="status">

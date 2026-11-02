@@ -221,7 +221,8 @@ function HeaderCell({ table, header, sticky }: { table: Table; header: Header; s
  * Keys on a body cell, like the MUI X Data Grid: the arrows, Home and End move between cells;
  * Enter, F2 or typing starts editing an editable cell. Space shows every tag of a cell whose tags
  * don't all fit. On other cells Enter and Space press the cell's button; in the Respondent cell Enter opens the respondent, Space picks the row and
- * Shift+F10 (or the menu key) opens the row actions.
+ * Shift+F10 (or the menu key) opens the row actions. On the other cells Shift+F10 (or the menu key)
+ * opens the cell's "Filter by" menu, like a right-click.
  */
 function onCellKeyDown(e: KeyboardEvent<HTMLDivElement>) {
   const target = e.target as HTMLElement
@@ -252,6 +253,9 @@ function onCellKeyDown(e: KeyboardEvent<HTMLDivElement>) {
     if (e.key === 'Enter') press('.who-name')
     else if (e.key === ' ') press('.checkbox input')
     else if (e.key === 'ContextMenu' || (e.shiftKey && e.key === 'F10')) press('.row-menu')
+  } else if (e.key === 'ContextMenu' || (e.shiftKey && e.key === 'F10')) {
+    e.preventDefault()
+    td.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true }))
   } else if (e.key === ' ' && tags) {
     // Tags that don't all fit: Space shows every one, like the MUI X Data Grid's multi-select cells.
     e.preventDefault()
@@ -347,7 +351,19 @@ export function RespondentsTable({
           </div>
         </div>
 
-        <div role="rowgroup" className="tbody" onFocus={onCellFocus} onKeyDown={onCellKeyDown}>
+        <div
+          role="rowgroup"
+          className="tbody"
+          onFocus={onCellFocus}
+          onKeyDown={onCellKeyDown}
+          // Right-click on a cell offers "Filter by" / "Exclude" its value; text fields keep the browser's menu.
+          onContextMenu={(e) => {
+            const target = e.target as HTMLElement
+            const td = target.closest<HTMLElement>('.td[data-row]')
+            if (!td || target.matches('input, textarea')) return
+            if (meta.onCellMenu(td.dataset.row!, td.dataset.col!)) e.preventDefault()
+          }}
+        >
           {rows.length === 0 && (
             <div className="empty" role="row">
               <span role="gridcell">No sample respondents match these filters.</span>
@@ -368,6 +384,7 @@ export function RespondentsTable({
                     role={isRowHeader ? 'rowheader' : 'gridcell'}
                     data-row={row.id}
                     data-col={cell.column.id}
+                    data-menu-anchor={`ctx:${row.id}:${cell.column.id}`}
                     tabIndex={tabStop && tabStop.row === row.id && tabStop.col === cell.column.id ? 0 : -1}
                     {...stickyProps('td', sticky.get(cell.column.id), isRowHeader)}
                   >

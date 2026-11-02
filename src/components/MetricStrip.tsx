@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, type RefObject } from 'react'
 import { projectCount, type Respondent } from '../data/respondents'
-import { METRICS, matchesTree, type MetricId } from '../filters/filters'
+import { METRICS, matchesConditions, type MetricId } from '../filters/filters'
 import { TruncatedText } from './Tooltip'
 
 type Props = {
@@ -28,7 +28,7 @@ export function MetricStrip({ data, total, active, onSelect, condensed }: Props)
   return (
     <div ref={ref} className="metrics" role="group" aria-label="Respondent metrics. Each one filters the list.">
       {METRICS.map((m) => {
-        const matching = data.filter((r) => matchesTree(r, m.tree)).length
+        const matching = data.filter((r) => matchesConditions(r, m.conditions)).length
         const share = data.length ? matching / data.length : 0
         const count = m.id === 'all' ? total : projectCount(matching, data.length, total)
         return (

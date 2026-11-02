@@ -1,178 +1,124 @@
-import type { Respondent } from '../data/respondents'
-import {
-  NO_VALUE_OPS,
-  OPERATORS,
-  formatDate,
-  getProperty,
-  operatorLabel,
-  takesList,
-  withinLabel,
-  withinRange,
-  type OperatorId,
-  type PropType,
-} from './properties'
+import { TODAY, type Respondent } from '../data/respondents'
+import { NOT_SET, choicesFor, getProperty, type PropType, type PropertyDef } from './properties'
 
-/* ---------- Model: property + operator + value, in AND/OR groups (one level deep) ---------- */
+/* ---------- Model: one chip per property, every chip must hold (AND) ---------- */
 
-export type Join = 'and' | 'or'
+/**
+ * How a condition compares, by property type. Lists and yes / no: the value is one of the chosen
+ * values, or none of them. Text: contains, or doesn't contain, the typed text. Dates: within the
+ * last N days, before or after a date, or between two dates.
+ */
+export type Mode = 'is' | 'is_not' | 'contains' | 'not_contains' | 'in_last' | 'before' | 'after' | 'between'
+
+export const MODES: Record<PropType, Array<[Mode, string]>> = {
+  single: [['is', 'is'], ['is_not', 'is not']],
+  multi: [['is', 'is'], ['is_not', 'is not']],
+  boolean: [['is', 'is']],
+  text: [['contains', 'contains'], ['not_contains', 'doesn’t contain']],
+  date: [['in_last', 'is in the last'], ['before', 'is before'], ['after', 'is after'], ['between', 'is between']],
+}
+
+/** "is in the last …" choices, in days. */
+export const LAST_DAYS: Array<[string, string]> = [['7', '7 days'], ['30', '30 days'], ['90', '90 days'], ['365', '12 months']]
 
 export interface Condition {
-  kind: 'condition'
   id: string
-  /** Null until a property is picked. */
-  prop: string | null
-  op: OperatorId
-  /** Text, number, ISO date, "true"/"false", a "past-N" range, or a list of choices. */
-  value: string | string[]
-}
-
-export interface Group {
-  kind: 'group'
-  id: string
-  join: Join
-  conditions: Condition[]
-}
-
-export type FilterItem = Condition | Group
-
-export interface FilterTree {
-  join: Join
-  items: FilterItem[]
+  prop: string
+  mode: Mode
+  /**
+   * Lists: the chosen option values ("true" / "false" for yes / no; NOT_SET stands for no value).
+   * Text: [typed text]. Dates: [days] for "in the last", [ISO date] for before / after, [from, to] for between.
+   */
+  values: string[]
 }
 
 export interface Filters {
   /** Free-text search box: names, emails or IDs, comma-separated. */
   query: string
-  tree: FilterTree
+  conditions: Condition[]
 }
 
-export const EMPTY_TREE: FilterTree = { join: 'and', items: [] }
-export const EMPTY_FILTERS: Filters = { query: '', tree: EMPTY_TREE }
+export const EMPTY_FILTERS: Filters = { query: '', conditions: [] }
 
 let seq = 0
-export const newId = () => `f${++seq}`
+const newId = () => `f${++seq}`
 
-export function defaultValue(type: PropType, operator: OperatorId): string | string[] {
-  if (takesList(type, operator)) return []
-  if (type === 'boolean') return 'true'
-  if (operator === 'within') return 'past-30'
-  return ''
+/** The values a mode starts with: dates start at "the last 30 days", the rest empty. */
+function startValues(mode: Mode): string[] {
+  if (mode === 'in_last') return ['30']
+  if (mode === 'between') return ['', '']
+  if (mode === 'before' || mode === 'after') return ['']
+  return []
 }
 
-export function newCondition(prop: string | null = null, operator?: OperatorId, value?: string | string[]): Condition {
-  const type = prop ? getProperty(prop).type : 'text'
-  const op = operator ?? OPERATORS[type][0].id
-  return { kind: 'condition', id: newId(), prop, op, value: value ?? defaultValue(type, op) }
+export function newCondition(prop: string, values?: string[], mode?: Mode): Condition {
+  const m = mode ?? MODES[getProperty(prop).type][0][0]
+  return { id: newId(), prop, mode: m, values: values ?? startValues(m) }
 }
 
-/** Switching operator keeps the value when it still fits (e.g. "is" → "is any of"). */
-export function withOperator(c: Condition, operator: OperatorId): Condition {
-  const type = getProperty(c.prop!).type
-  const wantsList = takesList(type, operator)
-  let value = c.value
-  if (wantsList && !Array.isArray(value)) value = value ? [value] : []
-  else if (!wantsList && Array.isArray(value)) value = value[0] ?? defaultValue(type, operator)
-  if (type === 'date' && (operator === 'within') !== (c.op === 'within')) value = defaultValue(type, operator)
-  return { ...c, op: operator, value }
+/** Switching mode keeps the values where they still fit (is / is not, contains / doesn't contain, before / after). */
+export function withMode(c: Condition, mode: Mode): Condition {
+  const kind = (m: Mode) => (m === 'before' || m === 'after' ? 'date' : m)
+  const keep = getProperty(c.prop).type !== 'date' || kind(mode) === kind(c.mode)
+  return { ...c, mode, values: keep ? c.values : startValues(mode) }
 }
 
-export function cloneItem<T extends FilterItem>(item: T): T {
-  if (item.kind === 'condition') return { ...item, id: newId(), value: Array.isArray(item.value) ? [...item.value] : item.value }
-  return { ...item, id: newId(), conditions: item.conditions.map(cloneItem) }
-}
+const cloneCondition = (c: Condition): Condition => ({ ...c, id: newId(), values: [...c.values] })
 
-/** Drops rows that never got a property (and groups left empty), e.g. when the panel closes. */
-export function pruneEmpty(tree: FilterTree): FilterTree {
-  const items = tree.items
-    .map((item) => (item.kind === 'group' ? { ...item, conditions: item.conditions.filter((c) => c.prop !== null) } : item))
-    .filter((item) => (item.kind === 'group' ? item.conditions.length > 0 : item.prop !== null))
-  return items.length === tree.items.length && items.every((item, i) => item === tree.items[i]) ? tree : { ...tree, items }
+/** Adds a condition, or replaces the one already on its property (one chip per property). */
+export function applyCondition(conditions: Condition[], next: Condition): Condition[] {
+  const at = conditions.findIndex((c) => c.id === next.id || c.prop === next.prop)
+  return at < 0 ? [...conditions, next] : conditions.map((c, i) => (i === at ? next : c))
 }
 
 /* ---------- Evaluation ---------- */
 
-export function isComplete(c: Condition): boolean {
-  if (!c.prop) return false
-  if (NO_VALUE_OPS.has(c.op)) return true
-  if (Array.isArray(c.value)) return c.value.length > 0
-  if (getProperty(c.prop).type === 'number') return c.value.trim() !== '' && Number.isFinite(Number(c.value))
-  return c.value.trim() !== ''
+/** A condition still missing its values (no choice, empty text, an unset date) doesn't filter. */
+export function isComplete(c: Condition) {
+  const type = getProperty(c.prop).type
+  if (type === 'text' || type === 'date') return c.values.length > 0 && c.values.every((v) => v.trim() !== '')
+  return c.values.length > 0
 }
 
-function isEmptyValue(v: unknown) {
-  return v === undefined || v === '' || (Array.isArray(v) && v.length === 0)
+export function activeConditions(conditions: Condition[]) {
+  return conditions.filter(isComplete)
+}
+
+function addDays(iso: string, days: number) {
+  const d = new Date(`${iso}T00:00:00Z`)
+  d.setUTCDate(d.getUTCDate() + days)
+  return d.toISOString().slice(0, 10)
 }
 
 export function testCondition(r: Respondent, c: Condition): boolean {
-  const prop = getProperty(c.prop!)
+  const prop = getProperty(c.prop)
   const raw = prop.get(r)
-  if (c.op === 'is_empty') return isEmptyValue(raw)
-  if (c.op === 'not_empty') return !isEmptyValue(raw)
-  const value = c.value
-
-  switch (prop.type) {
-    case 'text': {
-      const s = String(raw ?? '').toLowerCase()
-      const q = String(value).trim().toLowerCase()
-      if (c.op === 'contains') return s.includes(q)
-      if (c.op === 'not_contains') return !s.includes(q)
-      if (c.op === 'starts_with') return s.startsWith(q)
-      if (c.op === 'ends_with') return s.endsWith(q)
-      return c.op === 'is' ? s === q : s !== q
-    }
-    case 'number': {
-      if (raw === undefined) return c.op === 'neq'
-      const n = Number(raw)
-      const q = Number(value)
-      return { eq: n === q, neq: n !== q, gt: n > q, gte: n >= q, lt: n < q, lte: n <= q }[c.op as 'eq'] ?? false
-    }
-    case 'date': {
-      const d = raw as string | undefined
-      if (!d) return c.op === 'is_not'
-      const q = value as string
-      if (c.op === 'within') {
-        const range = withinRange(q)
-        return range !== null && d >= range[0] && d <= range[1]
-      }
-      // ISO dates compare correctly as strings.
-      return { is: d === q, is_not: d !== q, after: d > q, before: d < q, on_or_after: d >= q, on_or_before: d <= q }[c.op as 'is'] ?? false
-    }
-    case 'boolean': {
-      const matches = Boolean(raw) === (value === 'true')
-      return c.op === 'is' ? matches : !matches
-    }
-    case 'single': {
-      const s = raw as string | undefined
-      if (c.op === 'any_of') return s !== undefined && (value as string[]).includes(s)
-      if (c.op === 'none_of') return s === undefined || !(value as string[]).includes(s)
-      return c.op === 'is' ? s === value : s !== value
-    }
-    case 'multi': {
-      const list = (raw as string[] | undefined) ?? []
-      const hit = (value as string[]).some((v) => list.includes(v))
-      return c.op === 'contains' ? hit : !hit
-    }
+  if (prop.type === 'text') {
+    const hit = String(raw ?? '').toLowerCase().includes(c.values[0].trim().toLowerCase())
+    return c.mode === 'not_contains' ? !hit : hit
   }
+  if (prop.type === 'date') {
+    // ISO dates compare correctly as strings; respondents without the date never match.
+    const d = raw as string | undefined
+    if (!d) return false
+    const [a, b] = c.values
+    if (c.mode === 'in_last') return d >= addDays(TODAY, -Number(a)) && d <= TODAY
+    if (c.mode === 'before') return d < a
+    if (c.mode === 'after') return d > a
+    return d >= (a < b ? a : b) && d <= (a < b ? b : a)
+  }
+  let hit: boolean
+  if (prop.type === 'boolean') {
+    hit = c.values.includes(String(Boolean(raw)))
+  } else {
+    const have = Array.isArray(raw) ? raw : raw === undefined || raw === '' ? [] : [String(raw)]
+    hit = have.length ? have.some((v) => c.values.includes(v)) : c.values.includes(NOT_SET)
+  }
+  return c.mode === 'is' ? hit : !hit
 }
 
-/** Groups and incomplete rows that have nothing to test yet are skipped. */
-export function activeItems(tree: FilterTree): FilterItem[] {
-  return tree.items.filter((item) => (item.kind === 'condition' ? isComplete(item) : item.conditions.some(isComplete)))
-}
-
-function combine(join: Join, tests: boolean[]) {
-  return join === 'and' ? tests.every(Boolean) : tests.some(Boolean)
-}
-
-export function matchesTree(r: Respondent, tree: FilterTree): boolean {
-  const items = activeItems(tree)
-  if (!items.length) return true
-  return combine(
-    tree.join,
-    items.map((item) =>
-      item.kind === 'condition' ? testCondition(r, item) : combine(item.join, item.conditions.filter(isComplete).map((c) => testCondition(r, c))),
-    ),
-  )
+export function matchesConditions(r: Respondent, conditions: Condition[]): boolean {
+  return activeConditions(conditions).every((c) => testCondition(r, c))
 }
 
 export function searchTerms(query: string): string[] {
@@ -185,23 +131,26 @@ export function matchesFilters(r: Respondent, f: Filters): boolean {
     const hay = `${r.name} ${r.pid} ${r.email ?? ''} ${r.rio ?? ''}`.toLowerCase()
     if (!terms.some((t) => hay.includes(t))) return false
   }
-  return matchesTree(r, f.tree)
+  return matchesConditions(r, f.conditions)
 }
 
-/* ---------- Labels (chips, AI results) ---------- */
-
-export function valueLabel(c: Condition): string {
-  if (NO_VALUE_OPS.has(c.op)) return ''
-  const prop = getProperty(c.prop!)
-  const label = (v: string) => prop.options?.find((o) => o[0] === v)?.[1] ?? v
-  if (Array.isArray(c.value)) {
-    const names = c.value.map(label)
-    return names.length > 2 ? `${names.slice(0, 2).join(', ')} +${names.length - 2}` : names.join(', ')
-  }
-  if (prop.type === 'boolean') return c.value === 'true' ? 'True' : 'False'
-  if (prop.type === 'date') return c.op === 'within' ? withinLabel(c.value) : formatDate(c.value)
-  return label(c.value)
+/**
+ * What "Filter by …" offers on a cell: the cell's own values as [value, label] (each tag of a
+ * multi-value cell, "Not set" for an empty one). Dates aren't table cells.
+ */
+export function cellFilterValues(prop: PropertyDef, r: Respondent): Array<[string, string]> {
+  const raw = prop.get(r)
+  if (prop.type === 'text') return typeof raw === 'string' && raw ? [[raw, raw]] : []
+  if (prop.type === 'date') return []
+  const choices = choicesFor(prop)
+  const label = (v: string) => choices.find((o) => o[0] === v)?.[1] ?? v
+  if (prop.type === 'boolean') return [[String(Boolean(raw)), label(String(Boolean(raw)))]]
+  const have = Array.isArray(raw) ? raw : raw === undefined || raw === '' ? [] : [String(raw)]
+  if (!have.length) return prop.optional ? [[NOT_SET, 'Not set']] : []
+  return have.map((v) => [v, label(v)])
 }
+
+/* ---------- Labels (chips) ---------- */
 
 export interface ChipSummary {
   prop: string
@@ -209,46 +158,51 @@ export interface ChipSummary {
   val: string
 }
 
-export function summarize(item: FilterItem): ChipSummary {
-  if (item.kind === 'condition') {
-    const prop = getProperty(item.prop!)
-    return { prop: prop.label, op: operatorLabel(prop.type, item.op), val: valueLabel(item) }
+export function formatDate(iso: string) {
+  return new Date(`${iso}T00:00:00Z`).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' })
+}
+
+/**
+ * "Role: Main", "Age: 18-31, 32-44 +1", "Favorite: Yes": `op` is empty for "is". Everything else
+ * reads it out: "Role is not Backup", "Email contains “gmail”", "Added on in the last 30 days".
+ */
+export function summarize(c: Condition): ChipSummary {
+  const prop = getProperty(c.prop)
+  if (prop.type === 'text') {
+    return { prop: prop.label, op: c.mode === 'not_contains' ? 'doesn’t contain' : 'contains', val: `“${c.values[0] ?? ''}”` }
   }
-  const n = item.conditions.filter(isComplete).length
-  return { prop: 'Group', op: item.join === 'and' ? 'matches all of' : 'matches any of', val: `${n} filter${n === 1 ? '' : 's'}` }
+  if (prop.type === 'date') {
+    const [a, b] = c.values
+    if (c.mode === 'in_last') return { prop: prop.label, op: 'in the last', val: LAST_DAYS.find((d) => d[0] === a)?.[1] ?? `${a} days` }
+    if (c.mode === 'between') return { prop: prop.label, op: 'between', val: a && b ? `${formatDate(a < b ? a : b)} – ${formatDate(a < b ? b : a)}` : '' }
+    return { prop: prop.label, op: c.mode === 'before' ? 'before' : 'after', val: a ? formatDate(a) : '' }
+  }
+  const choices = choicesFor(prop)
+  const names = c.values.map((v) => choices.find((o) => o[0] === v)?.[1] ?? v)
+  const op = c.mode === 'is' ? '' : names.length > 1 ? 'is none of' : 'is not'
+  const val = names.length > 2 ? `${names.slice(0, 2).join(', ')} +${names.length - 2}` : names.join(', ')
+  return { prop: prop.label, op, val }
 }
 
 /* ---------- Saved views ---------- */
 
-const where = (prop: string, operator: OperatorId, value: string | string[]) => newCondition(prop, operator, value)
-
 export type ViewId = 'all' | 'attention' | 'live' | 'uk'
 // Placeholder names: the prototype only shows that saved views can switch the list.
-export const VIEWS: Record<ViewId, { label: string; tree: FilterTree }> = {
-  all: { label: 'All respondents', tree: EMPTY_TREE },
-  attention: { label: 'Saved view 1', tree: { join: 'and', items: [where('consent', 'is', 'Not signed')] } },
-  live: { label: 'Saved view 2', tree: { join: 'and', items: [where('live', 'is', 'Completed')] } },
-  uk: { label: 'Saved view 3', tree: { join: 'and', items: [where('area', 'is', 'urban')] } },
+export const VIEWS: Record<ViewId, { label: string; conditions: Condition[] }> = {
+  all: { label: 'All respondents', conditions: [] },
+  attention: { label: 'Saved view 1', conditions: [newCondition('consent', ['Not signed'])] },
+  live: { label: 'Saved view 2', conditions: [newCondition('live', ['Completed'])] },
+  uk: { label: 'Saved view 3', conditions: [newCondition('area', ['urban'])] },
 }
 
 /** A fresh copy of a view's filters, so edits never touch the saved view. */
-export function viewTree(view: ViewId): FilterTree {
-  const tree = VIEWS[view].tree
-  return { join: tree.join, items: tree.items.map(cloneItem) }
+export function viewConditions(view: ViewId): Condition[] {
+  return VIEWS[view].conditions.map(cloneCondition)
 }
 
-/** Compares what the filters do, ignoring ids and rows that are still incomplete. */
-function signature(tree: FilterTree) {
-  const strip = (c: Condition) => [c.prop, c.op, c.value]
-  const items = activeItems(tree)
-  return JSON.stringify([
-    items.length > 1 ? tree.join : '',
-    items.map((item) => (item.kind === 'condition' ? strip(item) : [item.join, item.conditions.filter(isComplete).map(strip)])),
-  ])
-}
-
-export function isViewDirty(view: ViewId, f: Filters): boolean {
-  return signature(VIEWS[view].tree) !== signature(f.tree) || searchTerms(f.query).length > 0
+/** Compares what the filters do, ignoring ids, value order and chips still without values. */
+function signature(conditions: Condition[]) {
+  return JSON.stringify(activeConditions(conditions).map((c) => [c.prop, c.mode, [...c.values].sort()]))
 }
 
 /* ---------- Metrics (the strip above the table) ---------- */
@@ -260,22 +214,21 @@ export type MetricId = 'all' | 'attention' | 'live' | 'done'
  * status tab with a count; the filters behind them are only examples. Edit this list to change
  * the strip; `attention` paints the number in the warning color.
  */
-export const METRICS: Array<{ id: MetricId; label: string; tree: FilterTree; attention?: boolean }> = [
-  { id: 'all', label: 'All respondents', tree: EMPTY_TREE },
-  { id: 'attention', label: 'Metric 1 (to be defined)', tree: { join: 'and', items: [where('consent', 'is', 'Not signed')] } },
-  { id: 'live', label: 'Metric 2 (to be defined)', tree: { join: 'and', items: [where('live', 'is', 'Not completed')] } },
-  { id: 'done', label: 'Metric 3 (to be defined)', tree: { join: 'and', items: [where('live', 'is', 'Completed')] } },
+export const METRICS: Array<{ id: MetricId; label: string; conditions: Condition[]; attention?: boolean }> = [
+  { id: 'all', label: 'All respondents', conditions: [] },
+  { id: 'attention', label: 'Metric 1 (to be defined)', conditions: [newCondition('consent', ['Not signed'])] },
+  { id: 'live', label: 'Metric 2 (to be defined)', conditions: [newCondition('live', ['Not completed'])] },
+  { id: 'done', label: 'Metric 3 (to be defined)', conditions: [newCondition('live', ['Completed'])] },
 ]
 
 /** A fresh copy of a metric's filters. */
-export function metricTree(id: MetricId): FilterTree {
-  const tree = METRICS.find((m) => m.id === id)!.tree
-  return { join: tree.join, items: tree.items.map(cloneItem) }
+export function metricConditions(id: MetricId): Condition[] {
+  return METRICS.find((m) => m.id === id)!.conditions.map(cloneCondition)
 }
 
 /** The metric whose filter is applied as-is on "All respondents", if any. */
 export function activeMetric(view: ViewId, f: Filters): MetricId | null {
   if (view !== 'all' || searchTerms(f.query).length > 0) return null
-  const current = signature(f.tree)
-  return METRICS.find((m) => signature(m.tree) === current)?.id ?? null
+  const current = signature(f.conditions)
+  return METRICS.find((m) => signature(m.conditions) === current)?.id ?? null
 }
