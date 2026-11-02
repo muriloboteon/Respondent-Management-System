@@ -665,14 +665,18 @@ svg.icon-sm { width: 12px; height: 12px; }
 }
 /* Column dividers: every header and body cell closes with a vertical line */
 .th, .td { border-right: 1px solid var(--foreground-border); }
-.th.scr { background: var(--oat-200); }
 .th-pii { margin-left: auto; font-size: 11px; font-weight: 400; color: var(--foreground-muted); }
 .th-label { display: flex; flex-direction: column; align-items: flex-start; gap: var(--sp-0-5); min-width: 0; overflow: hidden; }
-.th-label .tag { padding: 0 var(--sp-1-5); font-size: 11px; }
 .th-text { display: inline-flex; align-items: center; gap: var(--sp-1); max-width: 100%; color: var(--foreground); }
 .th-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* Icon headers (status columns): the label is in a tooltip */
 .th-icon { display: inline-flex; color: var(--foreground); }
+.th-icon svg.icon { width: 20px; height: 20px; }
+/* The icon sits in the column's center: equal side tracks, the menu button in the right one.
+   When the column is too narrow, the right track keeps the button's width and the icon moves left. */
+.th.th-icon-col { display: grid; grid-template-columns: 1fr auto 1fr; padding-left: var(--sp-1); }
+.th.th-icon-col .th-label { grid-column: 2; }
+.th.th-icon-col .icon-btn { grid-column: 3; justify-self: end; }
 
 /* Tooltip — DS "Tooltip" (Content=Simple). Under its anchor with the arrow on top, or above it
    with the arrow below; --arrow-x keeps the arrow on the anchor's center. */
@@ -686,6 +690,10 @@ svg.icon-sm { width: 12px; height: 12px; }
   margin: 0 0 -2px calc(var(--arrow-x, 50%) - 6px);
 }
 .tooltip-arrow img { display: block; }
+/* With a title: the title line (icon + text) above regular-weight text */
+.tooltip-rich { display: flex; flex-direction: column; gap: var(--sp-1); max-width: 260px; padding: var(--sp-2) var(--sp-3); }
+.tooltip-title { display: flex; align-items: center; gap: var(--sp-1-5); font-size: var(--fs-sm); font-weight: 600; line-height: 20px; }
+.tooltip-text { font-weight: 400; }
 .tooltip[data-placement="top"] .tooltip-arrow { margin: -2px 0 0 calc(var(--arrow-x, 50%) - 6px); transform: rotate(180deg); }
 .tooltip-body {
   padding: 6px 10px; border-radius: var(--radius-sm);
@@ -745,16 +753,15 @@ svg.icon-sm { width: 12px; height: 12px; }
 .who-name:hover { color: var(--foreground-accent); text-decoration: underline; text-underline-offset: 2px; }
 .who .tag { flex: none; }
 .cell-main { font-weight: 400; color: var(--foreground); }.cell-sub { font-size: var(--fs-xs); line-height: 16px; color: var(--foreground-secondary-muted); }
-.cell-na { font-size: var(--fs-xs); font-style: italic; color: var(--foreground-muted); }
 .cell-dash { color: var(--foreground-muted); }
 .chip-list { display: flex; flex-wrap: wrap; gap: var(--sp-1); }
 /* In table cells, text that doesn't fit ends in an ellipsis; extra chips are clipped */
-.td > .cell-main, .td > .cell-sub, .td > .cell-na { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.td > .cell-main, .td > .cell-sub { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .td > .chip-list { flex: 0 1 auto; flex-wrap: nowrap; min-width: 0; overflow: hidden; }
 .td > .chip-list .tag { flex: none; }
 
 /* Editable cells: the control fills the whole cell, padding included */
-.td > .cell-edit, .td > .cell-input {
+.td > .cell-edit, .td > .cell-input, .td > .fav-toggle, .td > .media-btn {
   flex: 1 1 auto; align-self: stretch; min-width: 0;
   margin: calc(var(--cell-py) * -1) calc(var(--cell-px) * -1);
   padding: 0 var(--cell-px);
@@ -787,7 +794,24 @@ svg.icon-sm { width: 12px; height: 12px; }
 @media (pointer: coarse) {
   .cell-edit-trail { opacity: 1; }
 }
-.fav { color: var(--dandelion-500); }
+/* Favorite toggle: fills the cell like other editable cells, the star centered */
+.fav-toggle, .media-btn {
+  display: flex; align-items: center; justify-content: center;
+  border: 0; background: none; cursor: pointer; color: var(--foreground-secondary-muted);
+}
+.fav-toggle svg.icon, .media-btn svg.icon { width: 20px; height: 20px; }
+.fav-toggle.is-on { color: var(--dandelion-500); }
+.fav-toggle:hover, .media-btn:hover { box-shadow: inset 0 0 0 1px var(--foreground-input-muted); }
+.fav-toggle:focus-visible, .media-btn:focus-visible { outline: none; box-shadow: inset 0 0 0 2px var(--foreground-ring); }
+/* Read-only icon in a cell (repeat respondents): grey and centered, the label in a tooltip */
+.td > .cell-icon { display: inline-flex; margin-inline: auto; color: var(--foreground-secondary-muted); }
+.cell-icon svg.icon { width: 20px; height: 20px; }
+/* Self capture and tech check cells: an outlined grey icon that opens the video player;
+   hovered or focused, it turns filled and accent colored */
+.media-btn:hover, .media-btn:focus-visible { color: var(--accent-soft-fg); }
+.media-rest, .media-hover { display: inline-flex; }
+.media-hover, .media-btn:hover .media-rest, .media-btn:focus-visible .media-rest { display: none; }
+.media-btn:hover .media-hover, .media-btn:focus-visible .media-hover { display: inline-flex; }
 
 .group-row { padding: var(--sp-1-5) var(--sp-4); background: var(--oat-50); border-bottom: 1px solid var(--foreground-border); font-size: var(--fs-xs); font-weight: 600; color: var(--foreground-secondary-muted); }
 .group-row span { position: sticky; left: var(--sp-4); }
@@ -891,9 +915,6 @@ body.is-resizing { cursor: col-resize; user-select: none; }
 .glance-summary { margin-left: auto; font-size: var(--fs-xs); color: var(--foreground-secondary-muted); }
 .glance-body { display: flex; flex-direction: column; align-items: flex-start; gap: var(--sp-3); padding: 0 var(--sp-3) var(--sp-3) calc(var(--sp-3) + 24px); color: var(--foreground); }
 .glance-body p { margin: 0; }
-.glance-note { font-size: var(--fs-xs); color: var(--foreground-secondary-muted); }
-.answer { display: flex; flex-direction: column; gap: var(--sp-1-5); }
-.answer .q { font-size: var(--fs-xs); line-height: 16px; color: var(--foreground-secondary-muted); }
 
 .detail-dates { display: flex; flex-direction: column; gap: var(--sp-0-5); padding: var(--sp-1) var(--sp-1) 0; font-size: var(--fs-xs); line-height: 16px; color: var(--foreground-muted); }
 
@@ -1005,6 +1026,57 @@ body.is-resizing { cursor: col-resize; user-select: none; }
 .modal-title { margin: 0; font-size: var(--fs-lg); line-height: 28px; font-weight: 600; color: var(--foreground-primary); }
 .modal-sm .modal-foot { border-top: 0; padding-top: 0; }
 .modal::backdrop { background: var(--overlay); }
+/* List dialogs (self captures): title and summary in the head, a bordered work list in the body */
+.modal-md { width: min(560px, calc(100vw - 32px)); }
+/* Tech check: the video player on the left (stacked on narrow screens), who it is, the results
+   and answer tabs on the right */
+.modal-tech { width: min(960px, calc(100vw - 32px)); }
+.modal-body.tech-body { display: grid; grid-template-columns: 320px minmax(0, 1fr); align-items: start; gap: var(--sp-8); padding-block: var(--sp-6); }
+@media (max-width: 760px) { .modal-body.tech-body { grid-template-columns: minmax(0, 1fr); gap: var(--sp-5); } }
+/* Video player: a black 4:3 screen with the controls along the bottom, the name band under it */
+.player { margin: 0; border-radius: var(--radius-md); overflow: hidden; }
+.player-screen { position: relative; display: flex; flex-direction: column; justify-content: flex-end; aspect-ratio: 4 / 3; background: #000; }
+.player-controls {
+  display: flex; align-items: center; gap: var(--sp-1); padding: var(--sp-1) var(--sp-2);
+  background: linear-gradient(transparent, rgb(0 0 0 / 0.6)); color: #fff;
+}
+.player-btn { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; padding: 0; border: 0; border-radius: var(--radius-sm); background: none; color: inherit; }
+.player-btn:hover { background: rgb(255 255 255 / 0.15); }
+.player-btn:focus-visible { outline: 2px solid #fff; outline-offset: -2px; }
+.player-btn svg.icon { width: 20px; height: 20px; }
+.player-push { margin-left: auto; }
+.player-time { font-size: var(--fs-xs); font-variant-numeric: tabular-nums; color: rgb(255 255 255 / 0.85); }
+.player-progress { height: 4px; margin: 0 var(--sp-3) var(--sp-3); border-radius: var(--radius-full); background: rgb(255 255 255 / 0.3); }
+.player-progress > span { display: block; width: 8%; height: 100%; border-radius: inherit; background: #fff; }
+.player-caption {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); padding: var(--sp-1-5) var(--sp-3);
+  background: var(--background-primary); color: var(--foreground-label); font-size: var(--fs-sm); font-weight: 500;
+}
+.player-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tech-main { display: flex; flex-direction: column; gap: var(--sp-4); min-width: 0; }
+.tech-name {
+  display: flex; align-items: baseline; gap: var(--sp-2); margin: 0; padding-bottom: var(--sp-4); border-bottom: 1px solid var(--foreground-border);
+  font-size: var(--fs-lg); line-height: 28px; font-weight: 600; color: var(--foreground-primary);
+}
+.tech-pid { font-size: var(--fs-sm); font-weight: 400; color: var(--foreground-secondary-muted); }
+.check-list { display: flex; flex-direction: column; gap: var(--sp-2); margin: 0; padding: 0; list-style: none; color: var(--foreground); }
+.check-list > li { display: flex; align-items: center; gap: var(--sp-2); }
+.check-list > li > .icon { color: var(--success-500); }
+.check-list strong { font-weight: 600; }
+.check-help { font-size: var(--fs-xs); }
+.check-list > .check-note { display: block; padding-left: 24px; font-size: var(--fs-xs); line-height: 16px; color: var(--foreground-secondary-muted); }
+/* Underlined tabs inside a dialog */
+.line-tabs { display: flex; gap: var(--sp-1); border-bottom: 1px solid var(--foreground-border); overflow-x: auto; scrollbar-width: none; }
+.line-tab {
+  display: inline-flex; align-items: center; gap: var(--sp-1-5); margin-bottom: -1px; padding: var(--sp-2) var(--sp-3);
+  border: 0; border-bottom: 2px solid transparent; background: none;
+  font-size: var(--fs-sm); font-weight: 500; white-space: nowrap; color: var(--foreground-secondary-muted);
+}
+.line-tab:hover { color: var(--foreground); }
+.line-tab[aria-selected="true"] { border-bottom-color: var(--foreground-accent); color: var(--foreground-accent-soft); }
+/* Keeps the dialog from jumping in height when switching tabs */
+.tech-panel { min-height: 216px; }
+.tech-empty { margin: var(--sp-3) 0 0; color: var(--foreground-secondary-muted); }
 .modal-head { display: flex; justify-content: space-between; align-items: flex-start; gap: var(--sp-4); padding: var(--sp-5) var(--sp-6) var(--sp-4); border-bottom: 1px solid var(--foreground-border); }
 .modal-head h2 { margin: 0; font-size: var(--fs-xl); line-height: 28px; font-weight: 600; color: var(--foreground-primary); }
 .modal-sub { margin: var(--sp-1) 0 0; color: var(--foreground-secondary-muted); }

@@ -18,6 +18,8 @@ import { OrgRail } from './components/OrgRail'
 import { ProjectSidebar, ProjectSidebarToggle } from './components/ProjectSidebar'
 import { RespondentsTable } from './components/RespondentsTable'
 import { RemoveConfirm } from './components/RemoveConfirm'
+import { SelfCaptureHistoryDialog } from './components/SelfCaptureHistoryDialog'
+import { TechCheckDialog } from './components/TechCheckDialog'
 import { ASSIGN_ITEMS, SEGMENT_ITEMS } from './components/respondentActions'
 import { TOTAL_RESPONDENTS, respondents, type GroupBy, type Respondent } from './data/respondents'
 import { EMPTY_FILTERS, activeMetric, matchesFilters, metricTree, viewTree, type Filters, type ViewId } from './filters/filters'
@@ -32,6 +34,7 @@ import {
   features,
   respondentFilter,
   type MenuState,
+  type RecordingKind,
 } from './table/respondentsTable'
 
 const DEFAULT_SORTING: SortingState = [{ id: 'respondent', desc: false }]
@@ -90,6 +93,9 @@ export function App() {
   const [pageMenuOpen, setPageMenuOpen] = useState(false)
   /** Respondents waiting on the remove confirmation. */
   const [removing, setRemoving] = useState<string[] | null>(null)
+  /** The recordings open for a row: its self captures list, or its tech check video. */
+  const [playing, setPlaying] = useState<{ id: string; kind: RecordingKind } | null>(null)
+  const playingRespondent = playing ? data.find((r) => r.id === playing.id) : undefined
 
   const isWide = useMediaQuery('(min-width: 1280px)')
   const closeBtn = useRef<HTMLButtonElement>(null)
@@ -147,6 +153,10 @@ export function App() {
         setMenu((cur) => (cur && cur.type === next.type && cur.id === next.id ? null : next))
       },
       onUpdate: (id, patch) => setData((prev) => prev.map((r) => (r.id === id ? { ...r, ...patch } : r))),
+      onPlay: (id, kind) => {
+        setMenu(null)
+        setPlaying({ id, kind })
+      },
     },
   })
 
@@ -452,6 +462,10 @@ export function App() {
             requestAnimationFrame(() => document.querySelector<HTMLElement>('[aria-label="Select all shown respondents"]')?.focus())
           }}
         />
+      )}
+      {playingRespondent && playing?.kind === 'tech' && <TechCheckDialog respondent={playingRespondent} onClose={() => setPlaying(null)} />}
+      {playingRespondent && playing?.kind === 'self' && (
+        <SelfCaptureHistoryDialog respondent={playingRespondent} onClose={() => setPlaying(null)} />
       )}
       {pasteText !== null && (
         <PasteImportDialog initialText={pasteText} existing={data} onClose={() => setPasteText(null)} onAdd={addRespondents} />

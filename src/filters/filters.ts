@@ -1,4 +1,4 @@
-import type { GroupBy, Respondent } from '../data/respondents'
+import { SEGMENTS, type GroupBy, type Respondent } from '../data/respondents'
 import {
   NO_VALUE_OPS,
   OPERATORS,
@@ -226,9 +226,9 @@ export type ViewId = 'all' | 'attention' | 'live' | 'uk'
 // Placeholder names: the prototype only shows that saved views can switch the list.
 export const VIEWS: Record<ViewId, { label: string; tree: FilterTree }> = {
   all: { label: 'All respondents', tree: EMPTY_TREE },
-  attention: { label: 'Saved view 1', tree: { join: 'and', items: [where('readiness', 'is', 'Something missing')] } },
-  live: { label: 'Saved view 2', tree: { join: 'and', items: [where('live', 'is_not', 'Not assigned')] } },
-  uk: { label: 'Saved view 3', tree: { join: 'and', items: [where('market', 'is', 'UK')] } },
+  attention: { label: 'Saved view 1', tree: { join: 'and', items: [where('consent', 'is', 'Not signed')] } },
+  live: { label: 'Saved view 2', tree: { join: 'and', items: [where('live', 'is', 'Completed')] } },
+  uk: { label: 'Saved view 3', tree: { join: 'and', items: [where('area', 'is', 'urban')] } },
 }
 
 /** A fresh copy of a view's filters, so edits never touch the saved view. */
@@ -262,9 +262,9 @@ export type MetricId = 'all' | 'attention' | 'live' | 'done'
  */
 export const METRICS: Array<{ id: MetricId; label: string; tree: FilterTree; attention?: boolean }> = [
   { id: 'all', label: 'All respondents', tree: EMPTY_TREE },
-  { id: 'attention', label: 'Metric 1 (to be defined)', tree: { join: 'and', items: [where('readiness', 'is', 'Something missing')] } },
-  { id: 'live', label: 'Metric 2 (to be defined)', tree: { join: 'and', items: [where('live', 'is', 'Assigned')] } },
-  { id: 'done', label: 'Metric 3 (to be defined)', tree: { join: 'and', items: [where('done', 'eq', '3')] } },
+  { id: 'attention', label: 'Metric 1 (to be defined)', tree: { join: 'and', items: [where('consent', 'is', 'Not signed')] } },
+  { id: 'live', label: 'Metric 2 (to be defined)', tree: { join: 'and', items: [where('live', 'is', 'Not completed')] } },
+  { id: 'done', label: 'Metric 3 (to be defined)', tree: { join: 'and', items: [where('live', 'is', 'Completed')] } },
 ]
 
 /** A fresh copy of a metric's filters. */
@@ -284,7 +284,6 @@ export function activeMetric(view: ViewId, f: Filters): MetricId | null {
 
 export const GROUP_BY_OPTIONS: Array<[GroupBy, string]> = [
   ['none', 'No grouping'],
-  ['market', 'Market'],
-  ['buyer', 'Buyer status'],
-  ['via', 'Recruited via'],
+  ...SEGMENTS.filter((s) => !s.multi).map((s): [GroupBy, string] => [s.key, s.label]),
+  ['source', 'Source'],
 ]

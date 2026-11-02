@@ -1,17 +1,24 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import arrow from '../assets/tooltip/arrow.svg'
+import { Icon, type IconName } from './Icon'
 
 /** Hover delay before a tooltip shows. */
 const SHOW_DELAY = 300
 
+/** A tooltip with a title line (and optional icon) above its text. */
+export interface TooltipTitle {
+  text: string
+  icon?: IconName
+}
+
 /**
- * Discuss DS "Tooltip" (Content=Simple). Rendered in a fixed layer on <body>, under the anchor
- * (Arrow=Top) or above it when there is no room below (Arrow=Bottom), kept inside the viewport
- * with the arrow still pointing at the anchor's center.
+ * Discuss DS "Tooltip" (Content=Simple, or with a `title` line above the text). Rendered in a
+ * fixed layer on <body>, under the anchor (Arrow=Top) or above it when there is no room below
+ * (Arrow=Bottom), kept inside the viewport with the arrow still pointing at the anchor's center.
  * Purely visual: it repeats text that is already on the page, so it is hidden from assistive tech.
  */
-export function Tooltip({ label, anchor }: { label: string; anchor: DOMRect }) {
+export function Tooltip({ label, title, anchor }: { label: string; title?: TooltipTitle; anchor: DOMRect }) {
   const ref = useRef<HTMLDivElement>(null)
 
   useLayoutEffect(() => {
@@ -33,7 +40,17 @@ export function Tooltip({ label, anchor }: { label: string; anchor: DOMRect }) {
       <span className="tooltip-arrow">
         <img src={arrow} width={10.3923} height={6} alt="" />
       </span>
-      <span className="tooltip-body">{label}</span>
+      {title ? (
+        <span className="tooltip-body tooltip-rich">
+          <span className="tooltip-title">
+            {title.icon && <Icon name={title.icon} />}
+            {title.text}
+          </span>
+          <span className="tooltip-text">{label}</span>
+        </span>
+      ) : (
+        <span className="tooltip-body">{label}</span>
+      )}
     </div>,
     document.body,
   )
@@ -42,11 +59,11 @@ export function Tooltip({ label, anchor }: { label: string; anchor: DOMRect }) {
 /** Shows a tooltip for an element after the hover delay; `hide` cancels or removes it. */
 function useHoverTooltip() {
   const timer = useRef<number | undefined>(undefined)
-  const [tip, setTip] = useState<{ label: string; anchor: DOMRect } | null>(null)
+  const [tip, setTip] = useState<{ label: string; title?: TooltipTitle; anchor: DOMRect } | null>(null)
 
-  const show = (el: HTMLElement, label: string) => {
+  const show = (el: HTMLElement, label: string, title?: TooltipTitle) => {
     window.clearTimeout(timer.current)
-    timer.current = window.setTimeout(() => setTip({ label, anchor: el.getBoundingClientRect() }), SHOW_DELAY)
+    timer.current = window.setTimeout(() => setTip({ label, title, anchor: el.getBoundingClientRect() }), SHOW_DELAY)
   }
   const hide = () => {
     window.clearTimeout(timer.current)
@@ -67,21 +84,25 @@ function useHoverTooltip() {
   }, [tip])
   useEffect(() => () => window.clearTimeout(timer.current), [])
 
-  return { tooltip: tip && <Tooltip label={tip.label} anchor={tip.anchor} />, show, hide }
+  return { tooltip: tip && <Tooltip label={tip.label} title={tip.title} anchor={tip.anchor} />, show, hide }
 }
 
 /**
  * Text that truncates with an ellipsis and shows its full value in a tooltip on hover,
- * only while it is actually cut off.
+ * only while it is actually cut off. With a `hint`, the tooltip always shows and carries
+ * the hint, after the full value when the text is cut off.
  */
-export function TruncatedText({ className, children }: { className: string; children: ReactNode }) {
+export function TruncatedText({ className, hint, children }: { className: string; hint?: string; children: ReactNode }) {
   const ref = useRef<HTMLSpanElement>(null)
   const { tooltip, show, hide } = useHoverTooltip()
 
   const onEnter = () => {
     const el = ref.current
-    if (!el || el.scrollWidth <= el.clientWidth) return
-    show(el, el.textContent ?? '')
+    if (!el) return
+    const cutOff = el.scrollWidth > el.clientWidth
+    const text = el.textContent ?? ''
+    if (hint) show(el, cutOff ? `${text} · ${hint}` : hint)
+    else if (cutOff) show(el, text)
   }
 
   return (
@@ -94,14 +115,65 @@ export function TruncatedText({ className, children }: { className: string; chil
   )
 }
 
-/** An icon that stands in for a text label: the label is in a tooltip and for screen readers. */
-export function IconLabel({ className, label, children }: { className: string; label: string; children: ReactNode }) {
+/** An icon-only button: `tip` shows in a tooltip on hover, `label` names it for screen readers. */
+export function IconButton({
+  className,
+  label,
+  tip,
+  onClick,
+  children,
+}: {
+  className: string
+  label: string
+  tip: string
+  onClick: () => void
+  children: ReactNode
+}) {
   const { tooltip, show, hide } = useHoverTooltip()
   return (
     <>
-      <span className={className} onMouseEnter={(e) => show(e.currentTarget, label)} onMouseLeave={hide}>
+      <button
+        type="button"
+        className={className}
+        aria-label={label}
+        onClick={onClick}
+        onMouseEnter={(e) => show(e.currentTarget, tip)}
+        onMouseLeave={hide}
+      >
         {children}
-        <span className="sr-only">{label}</span>
+      </button>
+      {tooltip}
+    </>
+  )
+}
+
+/**
+ * An icon that stands in for a text label: the label is in a tooltip and for screen readers.
+ * With a `detail`, the tooltip shows the label as its title (with `icon`) above the detail.
+ */
+export function IconLabel({
+  className,
+  label,
+  detail,
+  icon,
+  children,
+}: {
+  className: string
+  label: string
+  detail?: string
+  icon?: IconName
+  children: ReactNode
+}) {
+  const { tooltip, show, hide } = useHoverTooltip()
+  return (
+    <>
+      <span
+        className={className}
+        onMouseEnter={(e) => (detail ? show(e.currentTarget, detail, { text: label, icon }) : show(e.currentTarget, label))}
+        onMouseLeave={hide}
+      >
+        {children}
+        <span className="sr-only">{detail ? `${label}. ${detail}` : label}</span>
       </span>
       {tooltip}
     </>

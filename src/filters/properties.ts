@@ -1,4 +1,14 @@
-import { TODAY, isReady, viaLabel, type Respondent, type Via } from '../data/respondents'
+import {
+  INTERVIEW_ROLES,
+  INTERVIEW_SESSIONS,
+  SEGMENTS,
+  SOURCE_LABELS,
+  TODAY,
+  interviewSession,
+  sourceLabel,
+  timezoneLabel,
+  type Respondent,
+} from '../data/respondents'
 
 /* ---------- Property types and their operators (same set as Rally) ---------- */
 
@@ -43,7 +53,7 @@ export function operatorLabel(type: PropType, operator: OperatorId) {
 
 /* ---------- Properties ---------- */
 
-export type PropCategory = 'respondent' | 'screener'
+export type PropCategory = 'respondent' | 'segment'
 type RawValue = string | number | boolean | string[] | undefined
 
 export interface PropertyDef {
@@ -58,40 +68,36 @@ export interface PropertyDef {
 
 export const CATEGORY_LABELS: Record<PropCategory, string> = {
   respondent: 'Respondent properties',
-  screener: 'Screener questions',
+  segment: 'Segments',
 }
 
 const opts = (...values: string[]): Array<[string, string]> => values.map((v) => [v, v])
 /** Status cells show "—" when a step does not apply; filters treat that as empty. */
 const status = (s: string) => (s === '—' ? undefined : s)
-const VIAS: Via[] = ['US general', 'UK general', 'Agency upload', 'Spreadsheet paste']
-const METHOD = opts('Completed', 'In progress', 'Partial', 'Not started', 'Not assigned')
 
+/** One property per table column, in the table's order and with the same names. */
 export const PROPERTIES: PropertyDef[] = [
-  { id: 'name', label: 'Name', type: 'text', category: 'respondent', get: (r) => r.name },
-  { id: 'pid', label: 'Respondent ID', type: 'text', category: 'respondent', get: (r) => r.pid },
-  { id: 'email', label: 'Email', type: 'text', category: 'respondent', get: (r) => r.email },
-  { id: 'phone', label: 'Phone', type: 'text', category: 'respondent', get: (r) => r.phone },
-  { id: 'market', label: 'Market', type: 'single', category: 'respondent', options: opts('US', 'UK'), get: (r) => r.market },
-  { id: 'buyer', label: 'Buyer status', type: 'single', category: 'respondent', options: opts('Buyer', 'Non-buyer'), get: (r) => r.buyer },
-  { id: 'shopper', label: 'Shopper type', type: 'multi', category: 'respondent', options: opts('Online', 'In-store'), get: (r) => r.shopper },
-  { id: 'via', label: 'Recruited via', type: 'single', category: 'respondent', options: VIAS.map((v) => [v, viaLabel(v)]), get: (r) => r.via },
-  { id: 'readiness', label: 'Readiness', type: 'single', category: 'respondent', options: opts('Ready', 'Something missing'), get: (r) => (isReady(r) ? 'Ready' : 'Something missing') },
-  { id: 'diary', label: 'Diary', type: 'single', category: 'respondent', options: METHOD, get: (r) => r.diary.s },
-  { id: 'ai', label: 'AI interview', type: 'single', category: 'respondent', options: METHOD, get: (r) => r.ai.s },
-  { id: 'live', label: 'Live session', type: 'single', category: 'respondent', options: opts('Assigned', 'Completed', 'Not assigned'), get: (r) => r.liveDoc },
-  { id: 'invited', label: 'Invited', type: 'single', category: 'respondent', options: opts('Sent', 'Not sent'), get: (r) => status(r.invited) },
+  { id: 'name', label: 'Respondent', type: 'text', category: 'respondent', get: (r) => r.name },
+  { id: 'interview', label: 'Assign to Interview', type: 'single', category: 'respondent', options: opts(...INTERVIEW_SESSIONS.map((s) => s.name)), get: (r) => interviewSession(r)?.name },
+  { id: 'role', label: 'Role', type: 'single', category: 'respondent', options: opts(...INTERVIEW_ROLES), get: (r) => r.role },
+  { id: 'live', label: 'Self Captures', type: 'single', category: 'respondent', options: opts('Completed', 'Not completed'), get: (r) => r.liveDoc },
   { id: 'tech', label: 'Tech check', type: 'single', category: 'respondent', options: opts('Completed', 'Attempted', 'Not sent'), get: (r) => status(r.tech) },
   { id: 'consent', label: 'Consent form', type: 'single', category: 'respondent', options: opts('Signed', 'Not signed'), get: (r) => r.consent },
-  { id: 'rec', label: 'Recording', type: 'single', category: 'respondent', options: opts('Available'), get: (r) => status(r.rec) },
-  { id: 'async', label: 'Async activity', type: 'single', category: 'respondent', options: opts('Completed', 'Partial', 'Not completed', 'Not assigned'), get: (r) => r.asyncS },
-  { id: 'done', label: 'Activities completed', type: 'number', category: 'respondent', get: (r) => [r.diary, r.ai, r.live].filter((m) => m.s === 'Completed').length },
-  { id: 'prior', label: 'Taken part before', type: 'boolean', category: 'respondent', get: (r) => r.prior === 'Yes' },
+  { id: 'prior', label: 'Repeat Respondent', type: 'boolean', category: 'respondent', get: (r) => r.prior === 'Yes' },
   { id: 'fav', label: 'Favorite', type: 'boolean', category: 'respondent', get: (r) => r.fav },
-  { id: 'added', label: 'Date added', type: 'date', category: 'respondent', get: (r) => r.addedOn },
-  { id: 'lastActivity', label: 'Last activity', type: 'date', category: 'respondent', get: (r) => r.lastActivity },
-  { id: 'brands', label: 'Brands bought (last 6 months)', type: 'multi', category: 'screener', options: opts('Brand A', 'Brand B', 'Brand C', 'Brand D', 'None of these'), get: (r) => r.brands },
-  { id: 'freq', label: 'How often they buy snacks', type: 'single', category: 'screener', options: opts('Weekly', 'Monthly', 'Rarely'), get: (r) => r.freq || undefined },
+  { id: 'pid', label: 'ID', type: 'text', category: 'respondent', get: (r) => r.pid },
+  { id: 'email', label: 'Email', type: 'text', category: 'respondent', get: (r) => r.email },
+  { id: 'phone', label: 'Phone', type: 'text', category: 'respondent', get: (r) => r.phone },
+  { id: 'timezone', label: 'Timezone', type: 'text', category: 'respondent', get: (r) => timezoneLabel(r) ?? undefined },
+  { id: 'source', label: 'Source', type: 'single', category: 'respondent', options: opts(...Object.values(SOURCE_LABELS)), get: (r) => sourceLabel(r) },
+  ...SEGMENTS.map((s): PropertyDef => ({
+    id: s.key,
+    label: s.label,
+    type: s.multi ? 'multi' : 'single',
+    category: 'segment',
+    options: opts(...s.options),
+    get: (r) => (s.multi ? r.segments[s.key] : r.segments[s.key]?.[0]),
+  })),
 ]
 
 const BY_ID = new Map(PROPERTIES.map((p) => [p.id, p]))

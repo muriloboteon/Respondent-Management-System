@@ -1,6 +1,6 @@
 import { useState, type KeyboardEvent, type PointerEvent, type ReactNode, type Ref } from 'react'
 import {
-  answersIn,
+  SEGMENTS,
   dupInfo,
   limitPII,
   sourceLabel,
@@ -35,13 +35,7 @@ function addedNote(r: Respondent) {
   return `Added ${shortDate(r.addedOn)} through ${sourceLabel(r).toLowerCase()}`
 }
 
-function answeredNote(r: Respondent) {
-  if (r.src === 'paste') return 'Pasted from a spreadsheet, today'
-  return r.src === 'upload' ? `Mapped from upload, ${shortDate(r.addedOn)}` : `Answered ${shortDate(r.addedOn)}`
-}
-
 const METHODS = [
-  { key: 'diary', label: 'Diary (self-paced activity)' },
   { key: 'ai', label: 'AI interview' },
   { key: 'live', label: 'Live IDI' },
 ] as const
@@ -54,11 +48,7 @@ interface Field {
 function segmentFields(r: Respondent): Field[] {
   const tags = (values: readonly string[]) =>
     values.length ? <span className="chip-list">{values.map((v) => <Tag key={v}>{v}</Tag>)}</span> : <span className="cell-dash">Not set</span>
-  return [
-    { label: 'Market', value: tags([r.market]) },
-    { label: 'Buyer status', value: tags(r.buyer ? [r.buyer] : []) },
-    { label: 'Shopper type', value: tags(r.shopper) },
-  ]
+  return SEGMENTS.map((s) => ({ label: s.label, value: tags(r.segments[s.key] ?? []) }))
 }
 
 function detailFields(r: Respondent, hideContact: boolean): { shown: Field[]; empty: string[] } {
@@ -80,7 +70,6 @@ function detailFields(r: Respondent, hideContact: boolean): { shown: Field[]; em
   }
   add('Timezone', timezoneLabel(r))
   add('Source', sourceLabel(r))
-  add('Screener', r.src === 'upload' || r.src === 'paste' ? `${answersIn(r)} (mapped from file)` : answersIn(r))
   add('Prior participation', r.prior)
   add('Incentive', null)
   add('Recruiter', null)
@@ -139,7 +128,7 @@ function Glance({ title, summary, children }: { title: string; summary: ReactNod
   )
 }
 
-function WorkItem({ label, m, kind }: { label: string; m: MethodStatus; kind: 'diary' | 'ai' | 'live' }) {
+function WorkItem({ label, m, kind }: { label: string; m: MethodStatus; kind: 'ai' | 'live' }) {
   const action = m.s === 'Not assigned' ? (kind === 'live' ? 'Schedule' : 'Assign') : m.s === 'Not scheduled' ? 'Schedule' : ''
   return (
     <li className="work-item">
@@ -152,15 +141,6 @@ function WorkItem({ label, m, kind }: { label: string; m: MethodStatus; kind: 'd
       </span>
       {action && <button type="button" className="btn btn-sm btn-outline">{action}</button>}
     </li>
-  )
-}
-
-function Answer({ q, values }: { q: string; values: string[] }) {
-  return (
-    <div className="answer">
-      <span className="q">{q}</span>
-      <span className="chip-list">{values.length ? values.map((v) => <Tag key={v} variant="outline">{v}</Tag>) : <span className="cell-dash">No answer</span>}</span>
-    </div>
   )
 }
 
@@ -346,11 +326,6 @@ export function DetailPanel({
             <Glance title="Consent form" summary={<StatusTag status={r.consent} />}>
               <p>{r.consent === 'Signed' ? 'Signed Oct 3' : 'Not signed yet'}</p>
               {r.consent === 'Signed' && <a href="#consent-form">View submitted form</a>}
-            </Glance>
-            <Glance title="Screener answers" summary={answersIn(r)}>
-              <p className="glance-note">{answeredNote(r)}</p>
-              <Answer q="Which brands have you bought in the last 6 months? (multi-select)" values={r.brands} />
-              <Answer q="How often do you buy snacks?" values={r.freq ? [r.freq] : []} />
             </Glance>
           </div>
 

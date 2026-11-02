@@ -20,7 +20,6 @@ import { Checkbox } from './Checkbox'
 import { FilterPanel } from './FilterPanel'
 import { BulkActions } from './BulkActions'
 import { Icon } from './Icon'
-import { Tag } from './Tag'
 
 type Table = ReactTable<typeof features, Respondent>
 export type Panel = 'filter' | 'cols' | null
@@ -279,7 +278,6 @@ export function ListHeader({ table, total, filters, onFiltersChange, view, onVie
                         <label key={c.id} className="check-row">
                           <Checkbox checked={c.getIsVisible()} onChange={c.getToggleVisibilityHandler()} />
                           <span>{String(c.columnDef.header)}</span>
-                          {c.columnDef.meta!.multi && <Tag>Multi-select</Tag>}
                         </label>
                       ))}
                   </fieldset>

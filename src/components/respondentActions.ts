@@ -6,6 +6,6 @@ import type { MenuItem } from './FloatingMenu'
  */
 
 /** The research methods. "Live session…" opens the scheduling flow, hence the ellipsis. */
-export const ASSIGN_ITEMS: MenuItem[] = [{ label: 'Live session…' }, { label: 'AI interview' }, { label: 'Activity (diary)' }]
+export const ASSIGN_ITEMS: MenuItem[] = [{ label: 'Live session…' }, { label: 'AI interview' }]
 
 export const SEGMENT_ITEMS: MenuItem[] = [{ label: 'Add to segment…' }, { label: 'Remove from segment…' }]

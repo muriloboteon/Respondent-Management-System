@@ -1,15 +1,17 @@
 import type { ReactTable } from '@tanstack/react-table'
 import { useLayoutEffect, useRef, useState, type CSSProperties, type KeyboardEvent, type UIEvent } from 'react'
 import type { Respondent } from '../data/respondents'
-import { viaLabel, type Via } from '../data/respondents'
+import { SEGMENTS } from '../data/respondents'
 import type { RespondentRow, features } from '../table/respondentsTable'
 import { Checkbox } from './Checkbox'
 import { Icon } from './Icon'
-import { Tag } from './Tag'
 import { IconLabel, TruncatedText } from './Tooltip'
 
 type Table = ReactTable<typeof features, Respondent>
 type Header = ReturnType<Table['getHeaderGroups']>[number]['headers'][number]
+
+/** Tooltip on segment column names, which otherwise look like any other column. */
+const SEGMENT_HINT = 'Segment column · Automatically created from your segments'
 
 function ariaSort(sorted: false | 'asc' | 'desc') {
   return sorted === 'asc' ? 'ascending' : sorted === 'desc' ? 'descending' : 'none'
@@ -119,11 +121,10 @@ function HeaderCell({ table, header, sticky }: { table: Table; header: Header; s
   return (
     <div
       {...cellProps}
-      {...stickyProps(colMeta.kind === 'scr' ? 'th scr' : 'th', sticky, false)}
+      {...stickyProps(colMeta.icon ? 'th th-icon-col' : 'th', sticky, false)}
       aria-sort={column.getCanSort() ? ariaSort(sorted) : undefined}
     >
       <span className="th-label">
-        {colMeta.screener && <Tag variant="feature">{colMeta.screener}</Tag>}
         <span className="th-text">
           {column.getIsPinned() && (
             <IconLabel className="th-pin" label="Pinned column"><Icon name="pin" small /></IconLabel>
@@ -131,8 +132,11 @@ function HeaderCell({ table, header, sticky }: { table: Table; header: Header; s
           {colMeta.icon ? (
             <IconLabel className="th-icon" label={String(column.columnDef.header)}><Icon name={colMeta.icon} /></IconLabel>
           ) : (
-            <TruncatedText className="th-name"><table.FlexRender header={header} /></TruncatedText>
+            <TruncatedText className="th-name" hint={colMeta.kind === 'seg' ? SEGMENT_HINT : undefined}>
+              <table.FlexRender header={header} />
+            </TruncatedText>
           )}
+          {colMeta.kind === 'seg' && <span className="sr-only">{SEGMENT_HINT}</span>}
           {sorted && <Icon name={sorted === 'asc' ? 'caretUp' : 'caretDown'} small />}
         </span>
       </span>
@@ -155,9 +159,8 @@ function HeaderCell({ table, header, sticky }: { table: Table; header: Header; s
 
 function groupLabel(row: RespondentRow) {
   const value = String(row.groupingValue)
-  if (row.groupingColumnId === 'market') return `Market: ${value}`
-  if (row.groupingColumnId === 'buyer' && row.groupingValue === undefined) return 'Buyer status: not set'
-  if (row.groupingColumnId === 'via') return viaLabel(value as Via)
+  const segment = SEGMENTS.find((s) => s.key === row.groupingColumnId)
+  if (segment) return `${segment.label}: ${row.groupingValue === undefined ? 'not set' : value}`
   return value
 }
 
@@ -250,13 +253,12 @@ export function RespondentsTable({
                 aria-selected={row.id === meta.selectedId || undefined}
               >
                 {row.getVisibleCells().map((cell) => {
-                  const colMeta = cell.column.columnDef.meta!
                   const isRowHeader = cell.column.id === ROW_HEADER_ID
                   return (
                     <div
                       key={cell.id}
                       role={isRowHeader ? 'rowheader' : 'cell'}
-                      {...stickyProps(colMeta.kind === 'scr' ? 'td scr' : 'td', sticky.get(cell.column.id), isRowHeader)}
+                      {...stickyProps('td', sticky.get(cell.column.id), isRowHeader)}
                     >
                       <table.FlexRender cell={cell} />
                     </div>

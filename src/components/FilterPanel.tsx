@@ -194,7 +194,7 @@ function ValueEditor({ c, prop, onChange, inline = false }: { c: Condition; prop
   )
 }
 
-/** "Filter by..." search plus All / Respondent / Screener tabs, like Rally's property picker. */
+/** "Filter by..." search plus All / Respondent / Segments tabs, like Rally's property picker. */
 function PropertyPicker({ anchorKey, onPick, onClose }: { anchorKey: string; onPick: (id: string) => void; onClose: () => void }) {
   const ref = useRef<HTMLDivElement>(null)
   const input = useRef<HTMLInputElement>(null)
@@ -210,7 +210,7 @@ function PropertyPicker({ anchorKey, onPick, onClose }: { anchorKey: string; onP
 
   const q = query.trim().toLowerCase()
   const matches = PROPERTIES.filter((p) => (tab === 'all' || p.category === tab) && p.label.toLowerCase().includes(q))
-  const sections = (['respondent', 'screener'] as PropCategory[])
+  const sections = (['respondent', 'segment'] as PropCategory[])
     .map((cat) => [cat, matches.filter((p) => p.category === cat)] as const)
     .filter(([, list]) => list.length > 0)
 
@@ -224,7 +224,7 @@ function PropertyPicker({ anchorKey, onPick, onClose }: { anchorKey: string; onP
     else options[Math.min(next, options.length - 1)]?.focus()
   }
 
-  const tabs: Array<['all' | PropCategory, string]> = [['all', 'All properties'], ['respondent', CATEGORY_LABELS.respondent], ['screener', CATEGORY_LABELS.screener]]
+  const tabs: Array<['all' | PropCategory, string]> = [['all', 'All properties'], ['respondent', CATEGORY_LABELS.respondent], ['segment', CATEGORY_LABELS.segment]]
 
   return (
     <div ref={ref} className="fp-picker" role="dialog" aria-label="Choose a property" onKeyDown={moveFocus}>
@@ -499,7 +499,7 @@ export function FilterPanel({ tree, onTreeChange, data, resultCount, onDone }: P
       )}
       {aiResult?.length === 0 && (
         <p className="fp-ai-empty" role="status">
-          Couldn’t turn that into filters. Try a market, buyer status, consent, diary, AI interview, live session or a date range.
+          Couldn’t turn that into filters. Try a segment such as age or area, role, self captures, tech check, consent or favorites.
         </p>
       )}
 

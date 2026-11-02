@@ -135,7 +135,7 @@ export function PasteImportDialog({ initialText, existing, onClose, onAdd }: Pro
               {IMPORT_FIELDS.map((f) => <Tag key={f.key}>{f.label}</Tag>)}
             </span>
             <span className="paste-zone-hint">
-              Name and Market are required. Session, tech check and consent statuses are filled in by the product as respondents take part.
+              Name is required. Session, tech check and consent statuses are filled in by the product as respondents take part.
             </span>
           </div>
         </div>

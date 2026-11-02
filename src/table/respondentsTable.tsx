@@ -22,39 +22,40 @@ import {
 import { Checkbox } from '../components/Checkbox'
 import { EditableOptions, EditableText } from '../components/EditableCell'
 import { Icon, type IconName } from '../components/Icon'
-import { StatusTag, Tag } from '../components/Tag'
+import { Tag } from '../components/Tag'
+import { IconButton, IconLabel } from '../components/Tooltip'
 import {
-  BUYER_STATUSES,
   INTERVIEW_ROLES,
   INTERVIEW_SESSIONS,
-  MARKETS,
-  SHOPPER_TYPES,
+  SEGMENTS,
   SORT_ORDER,
-  answersIn,
   canEditContact,
   interviewSession,
   limitPII,
+  priorInterviewDate,
+  selfCaptures,
   sourceLabel,
   type GroupBy,
   type Respondent,
-  type Screener,
+  type SegmentDef,
 } from '../data/respondents'
 import { allTimezones, timezoneDescription, timezoneInfo, timezoneSearchText } from '../data/timezones'
 import { matchesFilters, type Filters } from '../filters/filters'
 
 export interface RespondentColumnMeta {
-  kind: 'int' | 'std' | 'core' | 'seg' | 'scr' | 'internal'
-  screener?: Screener
+  kind: 'int' | 'std' | 'core' | 'seg' | 'internal'
   /** The header shows this icon, with the column name in a tooltip. */
   icon?: IconName
   /** Personal data: the header shows a "PII" marker. */
   pii?: boolean
-  multi?: boolean
   /** Grouping offered from this column's header menu. */
   groupKey?: Exclude<GroupBy, 'none'>
 }
 
 export type MenuState = { type: 'row' | 'col'; id: string } | null
+
+/** What a respondent's row can open in a dialog: the self captures list, or the tech check. */
+export type RecordingKind = 'self' | 'tech'
 
 /** Pinned columns may take up to this share of the table's visible width. */
 export const PINNED_WIDTH_SHARE = 0.5
@@ -68,6 +69,8 @@ export interface RespondentTableMeta {
   onToggleMenu: (menu: NonNullable<MenuState>) => void
   /** Saves an inline cell edit. */
   onUpdate: (id: string, patch: Partial<Respondent>) => void
+  /** Opens a respondent's self captures list or tech check dialog. */
+  onPlay: (id: string, kind: RecordingKind) => void
 }
 
 export const features = tableFeatures({
@@ -160,24 +163,45 @@ function RespondentCell({ row, meta }: { row: RespondentRow; meta: RespondentTab
   )
 }
 
-function StatusCell({ value, sub }: { value: string; sub?: string }) {
-  if (value === '—') return <span className="cell-dash">—</span>
+/** Outlined like the header icons; the filled version shows while the button is hovered or focused. */
+function MediaIcon({ rest, hover }: { rest: IconName; hover: IconName }) {
   return (
     <>
-      <StatusTag status={value} />
-      {sub && <span className="cell-sub">{sub}</span>}
+      <span className="media-rest"><Icon name={rest} /></span>
+      <span className="media-hover"><Icon name={hover} /></span>
     </>
   )
 }
 
-function ScreenerCell({ r, screener, values }: { r: Respondent; screener: Screener; values: string[] }) {
-  if (answersIn(r) !== screener) return <span className="cell-na">Not in this screener</span>
-  if (!values.length) return <span className="cell-dash">—</span>
+/** Self captures: an icon once the respondent has completed one; it opens their self captures list. */
+function SelfCaptureCell({ r, meta }: { r: Respondent; meta: RespondentTableMeta }) {
+  const captures = selfCaptures(r)
+  if (!captures.length) return null
+  const tip = captures.length === 1 ? `Self capture completed ${captures[0].completedOn}`.trim() : `${captures.length} self captures completed`
   return (
-    <span className="chip-list">
-      {values.slice(0, 2).map((v) => <Tag key={v} variant="outline">{v}</Tag>)}
-      {values.length > 2 && <Tag variant="more" title={values.join(', ')}>+{values.length - 2}</Tag>}
-    </span>
+    <IconButton
+      className="media-btn"
+      label={`Open self captures for ${r.name} (${tip})`}
+      tip={tip}
+      onClick={() => meta.onPlay(r.id, 'self')}
+    >
+      <MediaIcon rest="videoCamera" hover="videoCameraFill" />
+    </IconButton>
+  )
+}
+
+/** Tech check: a play icon once the check is recorded; it opens the tech check dialog. */
+function TechCheckCell({ r, meta }: { r: Respondent; meta: RespondentTableMeta }) {
+  if (r.tech !== 'Completed') return null
+  return (
+    <IconButton
+      className="media-btn"
+      label={`Open tech check for ${r.name}`}
+      tip="Tech check: Completed"
+      onClick={() => meta.onPlay(r.id, 'tech')}
+    >
+      <MediaIcon rest="playCircle" hover="playCircleFill" />
+    </IconButton>
   )
 }
 
@@ -185,15 +209,44 @@ function ScreenerCell({ r, screener, values }: { r: Respondent; screener: Screen
 
 const helper = createColumnHelper<typeof features, Respondent>()
 
-function screenerColumn(id: string, screener: Screener, label: string, multi: boolean, get: (r: Respondent) => string[]) {
-  return helper.accessor((r) => get(r).join(', '), {
+/** One column per segment, e.g. "segAge"; values are edited in the cell. */
+function segmentColumn(def: SegmentDef) {
+  const id = `seg${def.key.charAt(0).toUpperCase()}${def.key.slice(1)}`
+  return helper.accessor((r) => (r.segments[def.key] ?? []).join(', '), {
     id,
-    header: label,
+    header: def.label,
     enableSorting: false,
-    size: 220,
-    minSize: 140,
-    meta: { kind: 'scr', screener, multi },
-    cell: ({ row }) => <ScreenerCell r={row.original} screener={screener} values={get(row.original)} />,
+    size: def.size,
+    meta: { kind: 'seg', groupKey: def.multi ? undefined : def.key },
+    cell: ({ row, table }) => {
+      const r = row.original
+      const values = r.segments[def.key] ?? []
+      return (
+        <EditableOptions
+          label={`${def.label} for ${r.name}`}
+          anchorKey={`cell:${row.id}:${id}`}
+          value={values}
+          options={def.options}
+          multi={def.multi}
+          emptyLabel={def.multi ? undefined : 'Not set'}
+          onCommit={(next) => table.options.meta!.onUpdate(row.id, { segments: { ...r.segments, [def.key]: next.filter(Boolean) } })}
+        >
+          <SegmentCell values={values} />
+        </EditableOptions>
+      )
+    },
+  })
+}
+
+/** Hidden column the "Group by" control groups single-value segments by. */
+function segmentGroupColumn(def: SegmentDef) {
+  return helper.accessor((r) => r.segments[def.key]?.[0], {
+    id: def.key,
+    header: def.label,
+    enableHiding: false,
+    enableSorting: false,
+    enableResizing: false,
+    meta: { kind: 'internal' },
   })
 }
 
@@ -292,6 +345,27 @@ function RoleCell({ r, meta }: { r: Respondent; meta: RespondentTableMeta }) {
   )
 }
 
+/** Favorite: a star toggled straight from the cell, outlined until it is set. */
+function FavoriteCell({ r, meta }: { r: Respondent; meta: RespondentTableMeta }) {
+  return (
+    <button
+      type="button"
+      className={r.fav ? 'fav-toggle is-on' : 'fav-toggle'}
+      aria-pressed={r.fav}
+      aria-label={`Favorite ${r.name}`}
+      onClick={() => meta.onUpdate(r.id, { fav: !r.fav })}
+    >
+      <Icon name={r.fav ? 'star' : 'starOutline'} />
+    </button>
+  )
+}
+
+/**
+ * Width of every icon-header column, the table's minimum column width. The header icon sits
+ * 3px left of center here: centering it exactly takes 96px (see .th-icon-col).
+ */
+const ICON_COLUMN_SIZE = 90
+
 export const columns = helper.columns([
   helper.accessor((r) => r.name, {
     id: 'respondent',
@@ -326,48 +400,58 @@ export const columns = helper.columns([
   // Status columns with icon headers, side by side after Role.
   helper.accessor((r) => r.liveDoc, {
     id: 'live',
-    header: 'Live session',
+    header: 'Self Captures',
     sortFn: byStatusRank,
-    size: 150,
-    meta: { kind: 'int', icon: 'videoChat' },
-    cell: ({ row, getValue }) => <StatusCell value={getValue()} sub={row.original.live.s === 'Completed' ? row.original.live.sub : ''} />,
+    size: ICON_COLUMN_SIZE,
+    meta: { kind: 'int', icon: 'videoCamera' },
+    cell: ({ row, table }) => <SelfCaptureCell r={row.original} meta={table.options.meta!} />,
   }),
   helper.accessor((r) => r.tech, {
     id: 'tech',
     header: 'Tech check',
     sortFn: byStatusRank,
-    size: 120,
+    size: ICON_COLUMN_SIZE,
     meta: { kind: 'int', icon: 'monitorCheck' },
-    cell: ({ getValue }) => <StatusCell value={getValue()} />,
+    cell: ({ row, table }) => <TechCheckCell r={row.original} meta={table.options.meta!} />,
   }),
   helper.accessor((r) => r.consent, {
     id: 'consent',
     header: 'Consent form',
     sortFn: byStatusRank,
-    size: 120,
+    size: ICON_COLUMN_SIZE,
     meta: { kind: 'int', icon: 'formCheck' },
-    cell: ({ getValue }) => <StatusCell value={getValue()} />,
+    // Empty for now: the cells will show an icon once it is chosen. Sorting and filters still use the status.
+    cell: () => null,
   }),
   helper.accessor((r) => r.prior, {
     id: 'prior',
-    header: 'Taken part before',
+    header: 'Repeat Respondent',
     sortFn: byStatusRank,
-    size: 90,
+    size: ICON_COLUMN_SIZE,
     meta: { kind: 'int', icon: 'repeat' },
-    cell: ({ getValue }) => <span className="cell-main">{getValue()}</span>,
+    // An icon on repeat respondents only; the others stay empty. Hovering says when they were interviewed before.
+    cell: ({ row, getValue }) => {
+      if (getValue() !== 'Yes') return null
+      const date = priorInterviewDate(row.original)
+      return (
+        <IconLabel
+          className="cell-icon"
+          label="Repeat respondent"
+          icon="repeat"
+          detail={date ? `This email matches a person we interviewed on ${date}.` : 'This person has taken part in an earlier study.'}
+        >
+          <Icon name="repeat" />
+        </IconLabel>
+      )
+    },
   }),
   helper.accessor((r) => r.fav, {
     id: 'fav',
     header: 'Favorite',
     sortFn: byFavorite,
-    size: 80,
-    meta: { kind: 'int', icon: 'star' },
-    cell: ({ getValue }) =>
-      getValue() ? (
-        <span className="fav" role="img" aria-label="Favorite"><Icon name="star" /></span>
-      ) : (
-        <span className="cell-dash" aria-label="Not a favorite">—</span>
-      ),
+    size: ICON_COLUMN_SIZE,
+    meta: { kind: 'int', icon: 'starOutline' },
+    cell: ({ row, table }) => <FavoriteCell r={row.original} meta={table.options.meta!} />,
   }),
   helper.accessor((r) => r.pid, {
     id: 'pid',
@@ -406,116 +490,21 @@ export const columns = helper.columns([
     header: 'Source',
     sortFn: byText,
     size: 180,
-    meta: { kind: 'std' },
+    meta: { kind: 'std', groupKey: 'source' },
     cell: ({ getValue }) => <TextCell value={getValue()} />,
   }),
-  helper.accessor((r) => r.market, {
-    id: 'segMarket',
-    header: 'Market',
-    enableSorting: false,
-    size: 120,
-    meta: { kind: 'seg', groupKey: 'market' },
-    cell: ({ row, table, getValue }) => (
-      <EditableOptions
-        label={`Market for ${row.original.name}`}
-        anchorKey={`cell:${row.id}:segMarket`}
-        value={[getValue()]}
-        options={MARKETS}
-        onCommit={([v]) => table.options.meta!.onUpdate(row.id, { market: v as Respondent['market'] })}
-      >
-        <SegmentCell values={[getValue()]} />
-      </EditableOptions>
-    ),
-  }),
-  helper.accessor((r) => r.buyer ?? '', {
-    id: 'segBuyer',
-    header: 'Buyer status',
-    enableSorting: false,
-    size: 140,
-    meta: { kind: 'seg', groupKey: 'buyer' },
-    cell: ({ row, table }) => {
-      const values = row.original.buyer ? [row.original.buyer] : []
-      return (
-        <EditableOptions
-          label={`Buyer status for ${row.original.name}`}
-          anchorKey={`cell:${row.id}:segBuyer`}
-          value={values}
-          options={BUYER_STATUSES}
-          emptyLabel="Not set"
-          onCommit={([v]) => table.options.meta!.onUpdate(row.id, { buyer: v as Respondent['buyer'] })}
-        >
-          <SegmentCell values={values} />
-        </EditableOptions>
-      )
-    },
-  }),
-  helper.accessor((r) => r.shopper.join(', '), {
-    id: 'segShopper',
-    header: 'Shopper type',
-    enableSorting: false,
-    size: 180,
-    meta: { kind: 'seg', multi: true },
-    cell: ({ row, table }) => (
-      <EditableOptions
-        label={`Shopper type for ${row.original.name}`}
-        anchorKey={`cell:${row.id}:segShopper`}
-        value={row.original.shopper}
-        options={SHOPPER_TYPES}
-        multi
-        onCommit={(next) => table.options.meta!.onUpdate(row.id, { shopper: next })}
-      >
-        <SegmentCell values={row.original.shopper} />
-      </EditableOptions>
-    ),
-  }),
-  helper.accessor((r) => r.invited, {
-    id: 'invited',
-    header: 'Invited',
-    sortFn: byStatusRank,
-    size: 120,
-    meta: { kind: 'core' },
-    cell: ({ getValue }) => <StatusCell value={getValue()} />,
-  }),
-  helper.accessor((r) => r.rec, {
-    id: 'rec',
-    header: 'Recording',
-    sortFn: byStatusRank,
-    size: 130,
-    meta: { kind: 'core' },
-    cell: ({ getValue }) => <StatusCell value={getValue()} />,
-  }),
-  helper.accessor((r) => r.asyncS, {
-    id: 'async',
-    header: 'Async activity',
-    sortFn: byStatusRank,
-    size: 160,
-    meta: { kind: 'core' },
-    cell: ({ row, getValue }) => <StatusCell value={getValue()} sub={row.original.asyncSub} />,
-  }),
-  screenerColumn('usBrands', 'US general', 'Brands bought (last 6 months)', true, (r) => r.brands),
-  screenerColumn('usFreq', 'US general', 'How often they buy snacks', false, (r) => (r.freq ? [r.freq] : [])),
-  screenerColumn('ukBrands', 'UK general', 'Brands bought (last 6 months)', true, (r) => r.brands),
-  screenerColumn('ukFreq', 'UK general', 'How often they buy snacks', false, (r) => (r.freq ? [r.freq] : [])),
+  ...SEGMENTS.map(segmentColumn),
   // Grouping-only columns: always hidden, used by the "Group by" control.
-  helper.accessor((r) => r.market, { id: 'market', header: 'Market', enableHiding: false, enableSorting: false, enableResizing: false, meta: { kind: 'internal' } }),
-  helper.accessor((r) => r.buyer, { id: 'buyer', header: 'Buyer status', enableHiding: false, enableSorting: false, enableResizing: false, meta: { kind: 'internal' } }),
-  helper.accessor((r) => r.via, { id: 'via', header: 'Recruited via', enableHiding: false, enableSorting: false, enableResizing: false, meta: { kind: 'internal' } }),
+  ...SEGMENTS.filter((s) => !s.multi).map(segmentGroupColumn),
 ])
 
-export const DEFAULT_COLUMN_VISIBILITY: Record<string, boolean> = {
-  usFreq: false,
-  ukFreq: false,
-  market: false,
-  buyer: false,
-  via: false,
-}
+export const DEFAULT_COLUMN_VISIBILITY: Record<string, boolean> = Object.fromEntries(
+  SEGMENTS.filter((s) => !s.multi).map((s) => [s.key, false]),
+)
 
 /** Sections of the "Columns" panel. */
 export const COLUMN_PANEL_GROUPS: Array<{ name: string; match: (meta: RespondentColumnMeta) => boolean }> = [
   { name: 'Interview', match: (m) => m.kind === 'int' },
   { name: 'Standard values', match: (m) => m.kind === 'std' },
-  { name: 'Respondent info', match: (m) => m.kind === 'core' },
   { name: 'Segments', match: (m) => m.kind === 'seg' },
-  { name: 'Screener: US general', match: (m) => m.kind === 'scr' && m.screener === 'US general' },
-  { name: 'Screener: UK general', match: (m) => m.kind === 'scr' && m.screener === 'UK general' },
 ]

@@ -1,4 +1,7 @@
-/* Phosphor icons (regular weight), as used by the Discuss design system. */
+/*
+ * Phosphor icons (regular weight unless named "Fill"), as used by the Discuss design system.
+ * Paths from @phosphor-icons/core are on a 256px grid, scaled to 16.
+ */
 const PATHS = {
   search: <path d="M14.354 13.646 11.224 10.518A5.5 5.5 0 1 0 10.518 11.224l3.128 3.13a.5.5 0 0 0 .708-.708ZM2.5 7A4.5 4.5 0 1 1 7 11.5 4.505 4.505 0 0 1 2.5 7Z" fill="currentColor" />,
   sliders: <path d="M4 6.563V2.5a.5.5 0 0 0-1 0v4.063a2 2 0 0 0 0 3.874V13.5a.5.5 0 0 0 1 0v-3.063a2 2 0 0 0 0-3.874ZM3.5 9.5a1 1 0 1 1 0-2 1 1 0 0 1 0 2Zm5-5.937V2.5a.5.5 0 0 0-1 0v1.063a2 2 0 0 0 0 3.874V13.5a.5.5 0 0 0 1 0V7.437a2 2 0 0 0 0-3.874ZM8 6.5a1 1 0 1 1 0-2 1 1 0 0 1 0 2Zm6.5 4a2.004 2.004 0 0 0-1.5-1.938V2.5a.5.5 0 0 0-1 0v6.063a2 2 0 0 0 0 3.874V13.5a.5.5 0 0 0 1 0v-1.063a2.004 2.004 0 0 0 1.5-1.937Zm-2 1a1 1 0 1 1 0-2 1 1 0 0 1 0 2Z" fill="currentColor" />,
@@ -6,47 +9,21 @@ const PATHS = {
   dotsVertical: <path d="M8.75 8a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0ZM8 3a.75.75 0 1 0 0 1.5A.75.75 0 0 0 8 3Zm0 8.5a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5Z" fill="currentColor" />,
   caretDown: <path d="m13.354 6.354-5 5a.5.5 0 0 1-.708 0l-5-5a.5.5 0 0 1 .708-.708L8 10.293l4.646-4.647a.5.5 0 0 1 .708.708Z" fill="currentColor" />,
   caretUp: <path d="M13.354 10.354a.5.5 0 0 1-.708 0L8 5.707l-4.646 4.647a.5.5 0 0 1-.708-.708l5-5a.5.5 0 0 1 .708 0l5 5a.5.5 0 0 1 0 .708Z" fill="currentColor" />,
-  columns: (
-    <>
-      <rect x="2" y="2.5" width="12" height="11" rx="1.5" fill="none" stroke="currentColor" />
-      <path d="M6 2.5v11M10 2.5v11" stroke="currentColor" />
-    </>
-  ),
-  x: <path d="M12.5 3.5l-9 9M3.5 3.5l9 9" stroke="currentColor" strokeLinecap="round" fill="none" />,
-  lock: (
-    <>
-      <rect x="2.5" y="6" width="11" height="8" rx="1" fill="none" stroke="currentColor" />
-      <path d="M5.5 6V4.5a2.5 2.5 0 0 1 5 0V6" fill="none" stroke="currentColor" />
-      <circle cx="8" cy="10" r=".75" fill="currentColor" />
-    </>
-  ),
-  clipboard: (
-    <>
-      <rect x="3" y="2.5" width="10" height="12" rx="1.5" fill="none" stroke="currentColor" />
-      <rect x="5.5" y="1.5" width="5" height="2.5" rx=".75" fill="var(--surface-background, #fff)" stroke="currentColor" />
-      <path d="M5.5 7.5h5M5.5 10h5M5.5 12.5h3" stroke="currentColor" strokeLinecap="round" fill="none" />
-    </>
-  ),
-  plus: <path d="M8 3v10M3 8h10" stroke="currentColor" strokeLinecap="round" fill="none" />,
-  download: <path d="M8 2.5v8M4.5 7 8 10.5 11.5 7M2.5 10v2.5a1 1 0 0 0 1 1h9a1 1 0 0 0 1-1V10" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" fill="none" />,
-  upload:<path d="M8 10.5V2.5M4.5 6 8 2.5 11.5 6M2.5 10v2.5a1 1 0 0 0 1 1h9a1 1 0 0 0 1-1V10" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" fill="none" />,
-  sparkle: (
-    <>
-      <path d="M6.5 2.5l1.1 3.4 3.4 1.1-3.4 1.1-1.1 3.4-1.1-3.4L2 7l3.4-1.1 1.1-3.4Z" fill="none" stroke="currentColor" strokeLinejoin="round" />
-      <path d="M12 9.5l.55 1.45L14 11.5l-1.45.55L12 13.5l-.55-1.45L10 11.5l1.45-.55L12 9.5Z" fill="currentColor" />
-    </>
-  ),
-  check: <path d="M3 8.5l3 3 7-7" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" fill="none" />,
-  star:<path d="M8 1.75l1.93 3.91 4.32.63-3.13 3.05.74 4.3L8 11.61l-3.86 2.03.74-4.3L1.75 6.29l4.32-.63L8 1.75Z" fill="currentColor" />,
-  user: (
-    <>
-      <circle cx="8" cy="5.5" r="3" fill="none" stroke="currentColor" />
-      <path d="M2.5 13.5a5.5 5.5 0 0 1 11 0" fill="none" stroke="currentColor" strokeLinecap="round" />
-    </>
-  ),
-  arrowsOut: <path d="M9.5 2.5h4v4M13.5 2.5 9 7M6.5 13.5h-4v-4M2.5 13.5 7 9" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" fill="none" />,
-  arrowRight: <path d="M2.5 8h11M9 3.5 13.5 8 9 12.5" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" fill="none" />,
-  /* Same drawing as the org rail's Segments icon (24px grid, scaled to 16) */
+  columns: <path transform="scale(0.0625)" d="M104,32H64A16,16,0,0,0,48,48V208a16,16,0,0,0,16,16h40a16,16,0,0,0,16-16V48A16,16,0,0,0,104,32Zm0,176H64V48h40ZM192,32H152a16,16,0,0,0-16,16V208a16,16,0,0,0,16,16h40a16,16,0,0,0,16-16V48A16,16,0,0,0,192,32Zm0,176H152V48h40Z" fill="currentColor" />,
+  x: <path transform="scale(0.0625)" d="M205.66,194.34a8,8,0,0,1-11.32,11.32L128,139.31,61.66,205.66a8,8,0,0,1-11.32-11.32L116.69,128,50.34,61.66A8,8,0,0,1,61.66,50.34L128,116.69l66.34-66.35a8,8,0,0,1,11.32,11.32L139.31,128Z" fill="currentColor" />,
+  lock: <path transform="scale(0.0625)" d="M208,80H176V56a48,48,0,0,0-96,0V80H48A16,16,0,0,0,32,96V208a16,16,0,0,0,16,16H208a16,16,0,0,0,16-16V96A16,16,0,0,0,208,80ZM96,56a32,32,0,0,1,64,0V80H96ZM208,208H48V96H208V208Zm-68-56a12,12,0,1,1-12-12A12,12,0,0,1,140,152Z" fill="currentColor" />,
+  clipboard: <path transform="scale(0.0625)" d="M200,32H163.74a47.92,47.92,0,0,0-71.48,0H56A16,16,0,0,0,40,48V216a16,16,0,0,0,16,16H200a16,16,0,0,0,16-16V48A16,16,0,0,0,200,32Zm-72,0a32,32,0,0,1,32,32H96A32,32,0,0,1,128,32Zm72,184H56V48H82.75A47.93,47.93,0,0,0,80,64v8a8,8,0,0,0,8,8h80a8,8,0,0,0,8-8V64a47.93,47.93,0,0,0-2.75-16H200Z" fill="currentColor" />,
+  plus: <path transform="scale(0.0625)" d="M224,128a8,8,0,0,1-8,8H136v80a8,8,0,0,1-16,0V136H40a8,8,0,0,1,0-16h80V40a8,8,0,0,1,16,0v80h80A8,8,0,0,1,224,128Z" fill="currentColor" />,
+  download: <path transform="scale(0.0625)" d="M224,144v64a8,8,0,0,1-8,8H40a8,8,0,0,1-8-8V144a8,8,0,0,1,16,0v56H208V144a8,8,0,0,1,16,0Zm-101.66,5.66a8,8,0,0,0,11.32,0l40-40a8,8,0,0,0-11.32-11.32L136,124.69V32a8,8,0,0,0-16,0v92.69L93.66,98.34a8,8,0,0,0-11.32,11.32Z" fill="currentColor" />,
+  upload: <path transform="scale(0.0625)" d="M224,144v64a8,8,0,0,1-8,8H40a8,8,0,0,1-8-8V144a8,8,0,0,1,16,0v56H208V144a8,8,0,0,1,16,0ZM93.66,77.66,120,51.31V144a8,8,0,0,0,16,0V51.31l26.34,26.35a8,8,0,0,0,11.32-11.32l-40-40a8,8,0,0,0-11.32,0l-40,40A8,8,0,0,0,93.66,77.66Z" fill="currentColor" />,
+  sparkle: <path transform="scale(0.0625)" d="M197.58,129.06,146,110l-19-51.62a15.92,15.92,0,0,0-29.88,0L78,110l-51.62,19a15.92,15.92,0,0,0,0,29.88L78,178l19,51.62a15.92,15.92,0,0,0,29.88,0L146,178l51.62-19a15.92,15.92,0,0,0,0-29.88ZM137,164.22a8,8,0,0,0-4.74,4.74L112,223.85,91.78,169A8,8,0,0,0,87,164.22L32.15,144,87,123.78A8,8,0,0,0,91.78,119L112,64.15,132.22,119a8,8,0,0,0,4.74,4.74L191.85,144ZM144,40a8,8,0,0,1,8-8h16V16a8,8,0,0,1,16,0V32h16a8,8,0,0,1,0,16H184V64a8,8,0,0,1-16,0V48H152A8,8,0,0,1,144,40ZM248,88a8,8,0,0,1-8,8h-8v8a8,8,0,0,1-16,0V96h-8a8,8,0,0,1,0-16h8V72a8,8,0,0,1,16,0v8h8A8,8,0,0,1,248,88Z" fill="currentColor" />,
+  check: <path transform="scale(0.0625)" d="M229.66,77.66l-128,128a8,8,0,0,1-11.32,0l-56-56a8,8,0,0,1,11.32-11.32L96,188.69,218.34,66.34a8,8,0,0,1,11.32,11.32Z" fill="currentColor" />,
+  star: <path transform="scale(0.0625)" d="M234.29,114.85l-45,38.83L203,211.75a16.4,16.4,0,0,1-24.5,17.82L128,198.49,77.47,229.57A16.4,16.4,0,0,1,53,211.75l13.76-58.07-45-38.83A16.46,16.46,0,0,1,31.08,86l59-4.76,22.76-55.08a16.36,16.36,0,0,1,30.27,0l22.75,55.08,59,4.76a16.46,16.46,0,0,1,9.37,28.86Z" fill="currentColor" />,
+  starOutline: <path transform="scale(0.0625)" d="M239.18,97.26A16.38,16.38,0,0,0,224.92,86l-59-4.76L143.14,26.15a16.36,16.36,0,0,0-30.27,0L90.11,81.23,31.08,86a16.46,16.46,0,0,0-9.37,28.86l45,38.83L53,211.75a16.38,16.38,0,0,0,24.5,17.82L128,198.49l50.53,31.08A16.4,16.4,0,0,0,203,211.75l-13.76-58.07,45-38.83A16.43,16.43,0,0,0,239.18,97.26Zm-15.34,5.47-48.7,42a8,8,0,0,0-2.56,7.91l14.88,62.8a.37.37,0,0,1-.17.48c-.18.14-.23.11-.38,0l-54.72-33.65a8,8,0,0,0-8.38,0L69.09,215.94c-.15.09-.19.12-.38,0a.37.37,0,0,1-.17-.48l14.88-62.8a8,8,0,0,0-2.56-7.91l-48.7-42c-.12-.1-.23-.19-.13-.5s.18-.27.33-.29l63.92-5.16A8,8,0,0,0,103,91.86l24.62-59.61c.08-.17.11-.25.35-.25s.27.08.35.25L153,91.86a8,8,0,0,0,6.75,4.92l63.92,5.16c.15,0,.24,0,.33.29S224,102.63,223.84,102.73Z" fill="currentColor" />,
+  user: <path transform="scale(0.0625)" d="M230.92,212c-15.23-26.33-38.7-45.21-66.09-54.16a72,72,0,1,0-73.66,0C63.78,166.78,40.31,185.66,25.08,212a8,8,0,1,0,13.85,8c18.84-32.56,52.14-52,89.07-52s70.23,19.44,89.07,52a8,8,0,1,0,13.85-8ZM72,96a56,56,0,1,1,56,56A56.06,56.06,0,0,1,72,96Z" fill="currentColor" />,
+  arrowsOut: <path transform="scale(0.0625)" d="M216,48V96a8,8,0,0,1-16,0V67.31l-50.34,50.35a8,8,0,0,1-11.32-11.32L188.69,56H160a8,8,0,0,1,0-16h48A8,8,0,0,1,216,48ZM106.34,138.34,56,188.69V160a8,8,0,0,0-16,0v48a8,8,0,0,0,8,8H96a8,8,0,0,0,0-16H67.31l50.35-50.34a8,8,0,0,0-11.32-11.32Z" fill="currentColor" />,
+  arrowRight: <path transform="scale(0.0625)" d="M221.66,133.66l-72,72a8,8,0,0,1-11.32-11.32L196.69,136H40a8,8,0,0,1,0-16H196.69L138.34,61.66a8,8,0,0,1,11.32-11.32l72,72A8,8,0,0,1,221.66,133.66Z" fill="currentColor" />,
+  /* Phosphor ChartDonut, as in the org rail's Segments icon (24px grid, scaled to 16) */
   chartDonut: (
     <path
       transform="scale(0.6667)"
@@ -54,17 +31,85 @@ const PATHS = {
       fill="currentColor"
     />
   ),
-  arrowsLeftRight: <path d="M13.5 5h-11M5 2.5 2.5 5 5 7.5M2.5 11h11M11 8.5l2.5 2.5-2.5 2.5" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" fill="none" />,
-  arrowsIn: <path d="M13.5 2.5 9.5 6.5M9.5 3v3.5H13M2.5 13.5l4-4M3 9.5h3.5V13" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" fill="none" />,
-  pencil: <path d="M10.5 2.5l3 3-8 8H2.5v-3l8-8ZM8.5 4.5l3 3" fill="none" stroke="currentColor" strokeLinejoin="round" />,
-  /* Status column headers: live session, tech check, consent form, taken part before */
-  videoChat: (
-    <>
-      <path d="M8 1.5c3.59 0 6.5 2.69 6.5 6s-2.91 6-6.5 6a7 7 0 0 1-2.9-.62L1.5 14.5l.95-3.1A5.7 5.7 0 0 1 1.5 7.5c0-3.31 2.91-6 6.5-6Z" fill="none" stroke="currentColor" strokeLinejoin="round" />
-      <rect x="4.5" y="5.75" width="4.5" height="3.5" rx=".75" fill="currentColor" />
-      <path d="M9.5 7.5 11.5 6.25v2.5L9.5 7.5Z" fill="currentColor" stroke="currentColor" strokeLinejoin="round" />
-    </>
+  arrowsLeftRight: <path transform="scale(0.0625)" d="M213.66,181.66l-32,32a8,8,0,0,1-11.32-11.32L188.69,184H48a8,8,0,0,1,0-16H188.69l-18.35-18.34a8,8,0,0,1,11.32-11.32l32,32A8,8,0,0,1,213.66,181.66Zm-139.32-64a8,8,0,0,0,11.32-11.32L67.31,88H208a8,8,0,0,0,0-16H67.31L85.66,53.66A8,8,0,0,0,74.34,42.34l-32,32a8,8,0,0,0,0,11.32Z" fill="currentColor" />,
+  arrowsIn: <path transform="scale(0.0625)" d="M213.66,53.66,163.31,104H192a8,8,0,0,1,0,16H144a8,8,0,0,1-8-8V64a8,8,0,0,1,16,0V92.69l50.34-50.35a8,8,0,0,1,11.32,11.32ZM112,136H64a8,8,0,0,0,0,16H92.69L42.34,202.34a8,8,0,0,0,11.32,11.32L104,163.31V192a8,8,0,0,0,16,0V144A8,8,0,0,0,112,136Z" fill="currentColor" />,
+  pencil: <path transform="scale(0.0625)" d="M227.31,73.37,182.63,28.68a16,16,0,0,0-22.63,0L36.69,152A15.86,15.86,0,0,0,32,163.31V208a16,16,0,0,0,16,16H92.69A15.86,15.86,0,0,0,104,219.31L227.31,96a16,16,0,0,0,0-22.63ZM92.69,208H48V163.31l88-88L180.69,120ZM192,108.68,147.31,64l24-24L216,84.68Z" fill="currentColor" />,
+  /* Status columns: self captures (regular in the header, fill in the cells), tech check video,
+     then the tech check, consent form and repeat respondent headers */
+  videoCamera: (
+    <path
+      transform="scale(0.0625)"
+      d="M251.77,73a8,8,0,0,0-8.21.39L208,97.05V72a16,16,0,0,0-16-16H32A16,16,0,0,0,16,72V184a16,16,0,0,0,16,16H192a16,16,0,0,0,16-16V159l35.56,23.71A8,8,0,0,0,248,184a8,8,0,0,0,8-8V80A8,8,0,0,0,251.77,73ZM192,184H32V72H192V184Zm48-22.95-32-21.33V116.28L240,95Z"
+      fill="currentColor"
+    />
   ),
+  videoCameraFill: (
+    <path
+      transform="scale(0.0625)"
+      d="M192,72V184a16,16,0,0,1-16,16H32a16,16,0,0,1-16-16V72A16,16,0,0,1,32,56H176A16,16,0,0,1,192,72Zm58,.25a8.23,8.23,0,0,0-6.63,1.22L209.78,95.86A4,4,0,0,0,208,99.19v57.62a4,4,0,0,0,1.78,3.33l33.78,22.52a8,8,0,0,0,8.58.19,8.33,8.33,0,0,0,3.86-7.17V80A8,8,0,0,0,250,72.25Z"
+      fill="currentColor"
+    />
+  ),
+  /* Video player controls: Phosphor Play and Pause (fill), SpeakerHigh, CornersOut */
+  playFill: (
+    <path
+      transform="scale(0.0625)"
+      d="M240,128a15.74,15.74,0,0,1-7.6,13.51L88.32,229.65a16,16,0,0,1-16.2.3A15.86,15.86,0,0,1,64,216.13V39.87a15.86,15.86,0,0,1,8.12-13.82,16,16,0,0,1,16.2.3L232.4,114.49A15.74,15.74,0,0,1,240,128Z"
+      fill="currentColor"
+    />
+  ),
+  pauseFill: (
+    <path
+      transform="scale(0.0625)"
+      d="M216,48V208a16,16,0,0,1-16,16H160a16,16,0,0,1-16-16V48a16,16,0,0,1,16-16h40A16,16,0,0,1,216,48ZM96,32H56A16,16,0,0,0,40,48V208a16,16,0,0,0,16,16H96a16,16,0,0,0,16-16V48A16,16,0,0,0,96,32Z"
+      fill="currentColor"
+    />
+  ),
+  speakerHigh: (
+    <path
+      transform="scale(0.0625)"
+      d="M155.51,24.81a8,8,0,0,0-8.42.88L77.25,80H32A16,16,0,0,0,16,96v64a16,16,0,0,0,16,16H77.25l69.84,54.31A8,8,0,0,0,160,224V32A8,8,0,0,0,155.51,24.81ZM32,96H72v64H32ZM144,207.64,88,164.09V91.91l56-43.55Zm54-106.08a40,40,0,0,1,0,52.88,8,8,0,0,1-12-10.58,24,24,0,0,0,0-31.72,8,8,0,0,1,12-10.58ZM248,128a79.9,79.9,0,0,1-20.37,53.34,8,8,0,0,1-11.92-10.67,64,64,0,0,0,0-85.33,8,8,0,1,1,11.92-10.67A79.83,79.83,0,0,1,248,128Z"
+      fill="currentColor"
+    />
+  ),
+  cornersOut: (
+    <path
+      transform="scale(0.0625)"
+      d="M216,48V88a8,8,0,0,1-16,0V56H168a8,8,0,0,1,0-16h40A8,8,0,0,1,216,48ZM88,200H56V168a8,8,0,0,0-16,0v40a8,8,0,0,0,8,8H88a8,8,0,0,0,0-16Zm120-40a8,8,0,0,0-8,8v32H168a8,8,0,0,0,0,16h40a8,8,0,0,0,8-8V168A8,8,0,0,0,208,160ZM88,40H48a8,8,0,0,0-8,8V88a8,8,0,0,0,16,0V56H88a8,8,0,0,0,0-16Z"
+      fill="currentColor"
+    />
+  ),
+  /* Phosphor CheckCircle fill: a passed check */
+  checkCircleFill: (
+    <path
+      transform="scale(0.0625)"
+      d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm45.66,85.66-56,56a8,8,0,0,1-11.32,0l-24-24a8,8,0,0,1,11.32-11.32L112,148.69l50.34-50.35a8,8,0,0,1,11.32,11.32Z"
+      fill="currentColor"
+    />
+  ),
+  /* Phosphor ArrowSquareOut: the action takes the user to another page */
+  arrowSquareOut: (
+    <path
+      transform="scale(0.0625)"
+      d="M224,104a8,8,0,0,1-16,0V59.32l-66.33,66.34a8,8,0,0,1-11.32-11.32L196.68,48H152a8,8,0,0,1,0-16h64a8,8,0,0,1,8,8Zm-40,24a8,8,0,0,0-8,8v72H48V80h72a8,8,0,0,0,0-16H48A16,16,0,0,0,32,80V208a16,16,0,0,0,16,16H176a16,16,0,0,0,16-16V136A8,8,0,0,0,184,128Z"
+      fill="currentColor"
+    />
+  ),
+  playCircle: (
+    <path
+      transform="scale(0.0625)"
+      d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm0,192a88,88,0,1,1,88-88A88.1,88.1,0,0,1,128,216Zm48.24-94.78-64-40A8,8,0,0,0,100,88v80a8,8,0,0,0,12.24,6.78l64-40a8,8,0,0,0,0-13.56ZM116,153.57V102.43L156.91,128Z"
+      fill="currentColor"
+    />
+  ),
+  playCircleFill: (
+    <path
+      transform="scale(0.0625)"
+      d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm40.55,110.58-52,36A8,8,0,0,1,104,164V92a8,8,0,0,1,12.55-6.58l52,36a8,8,0,0,1,0,13.16Z"
+      fill="currentColor"
+    />
+  ),
+  /* Not Phosphor: Phosphor has no monitor or form with a check badge */
   monitorCheck: (
     <>
       <path d="M9 10.5H2.5a1 1 0 0 1-1-1v-6a1 1 0 0 1 1-1h11a1 1 0 0 1 1 1V8M5.5 13.5h3M7 10.5v3" fill="none" stroke="currentColor" strokeLinecap="round" />
@@ -79,8 +124,8 @@ const PATHS = {
       <path d="M11.2 12l.9.9 1.6-1.7" fill="none" stroke="var(--surface-background, #fff)" strokeLinecap="round" strokeLinejoin="round" />
     </>
   ),
-  repeat: <path d="M2.5 8V7a2.5 2.5 0 0 1 2.5-2.5h8.5M11.5 2.5l2 2-2 2M13.5 8v1a2.5 2.5 0 0 1-2.5 2.5H2.5M4.5 13.5l-2-2 2-2" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" />,
-  pin: <path d="M5.5 2h5M6.5 2v4l-2 3h7l-2-3V2M8 9v5" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" />,
+  repeat: <path transform="scale(0.0625)" d="M24,128A72.08,72.08,0,0,1,96,56H204.69L194.34,45.66a8,8,0,0,1,11.32-11.32l24,24a8,8,0,0,1,0,11.32l-24,24a8,8,0,0,1-11.32-11.32L204.69,72H96a56.06,56.06,0,0,0-56,56,8,8,0,0,1-16,0Zm200-8a8,8,0,0,0-8,8,56.06,56.06,0,0,1-56,56H51.31l10.35-10.34a8,8,0,0,0-11.32-11.32l-24,24a8,8,0,0,0,0,11.32l24,24a8,8,0,0,0,11.32-11.32L51.31,200H160a72.08,72.08,0,0,0,72-72A8,8,0,0,0,224,120Z" fill="currentColor" />,
+  pin: <path transform="scale(0.0625)" d="M235.32,81.37,174.63,20.69a16,16,0,0,0-22.63,0L98.37,74.49c-10.66-3.34-35-7.37-60.4,13.14a16,16,0,0,0-1.29,23.78L85,159.71,42.34,202.34a8,8,0,0,0,11.32,11.32L96.29,171l48.29,48.29A16,16,0,0,0,155.9,224c.38,0,.75,0,1.13,0a15.93,15.93,0,0,0,11.64-6.33c19.64-26.1,17.75-47.32,13.19-60L235.33,104A16,16,0,0,0,235.32,81.37ZM224,92.69h0l-57.27,57.46a8,8,0,0,0-1.49,9.22c9.46,18.93-1.8,38.59-9.34,48.62L48,100.08c12.08-9.74,23.64-12.31,32.48-12.31A40.13,40.13,0,0,1,96.81,91a8,8,0,0,0,9.25-1.51L163.32,32,224,92.68Z" fill="currentColor" />,
   trash: <path d="M13.5 3H11v-.5A1.5 1.5 0 0 0 9.5 1h-3A1.5 1.5 0 0 0 5 2.5V3H2.5a.5.5 0 0 0 0 1H3v9a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V4h.5a.5.5 0 0 0 0-1ZM6 2.5a.5.5 0 0 1 .5-.5h3a.5.5 0 0 1 .5.5V3H6v-.5ZM12 13H4V4h8v9ZM7 6.5v4a.5.5 0 0 1-1 0v-4a.5.5 0 0 1 1 0Zm3 0v4a.5.5 0 0 1-1 0v-4a.5.5 0 0 1 1 0Z" fill="currentColor" />,
 }
 

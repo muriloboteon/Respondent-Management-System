@@ -86,7 +86,7 @@ export interface OptionSearch {
 
 interface OptionsProps {
   label: string
-  /** Unique per cell, e.g. "cell:r4:segMarket". */
+  /** Unique per cell, e.g. "cell:r4:segAge". */
   anchorKey: string
   value: readonly string[]
   /** A function runs only when the menu opens, for long lists that are costly to build. */

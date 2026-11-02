@@ -1,4 +1,4 @@
-import { M, TODAY, enrichRespondent, type Respondent, type Via } from '../data/respondents'
+import { M, SEGMENTS, TODAY, enrichRespondent, type Respondent, type SegmentDef, type SegmentKey, type SegmentValues } from '../data/respondents'
 
 /*
  * Pasting rows copied from Excel / Google Sheets.
@@ -10,7 +10,7 @@ import { M, TODAY, enrichRespondent, type Respondent, type Via } from '../data/r
 
 export type ImportField =
   | 'name' | 'firstName' | 'lastName' | 'email' | 'phone'
-  | 'market' | 'buyer' | 'shopper' | 'via' | 'brands' | 'freq'
+  | SegmentKey
 
 /** Fields a pasted column can fill. Status columns (sessions, consent, tech check) are produced by the product, not pasted. */
 export const IMPORT_FIELDS: Array<{ key: ImportField; label: string }> = [
@@ -19,12 +19,7 @@ export const IMPORT_FIELDS: Array<{ key: ImportField; label: string }> = [
   { key: 'lastName', label: 'Last name' },
   { key: 'email', label: 'Email' },
   { key: 'phone', label: 'Phone' },
-  { key: 'market', label: 'Market (US / UK)' },
-  { key: 'buyer', label: 'Buyer status' },
-  { key: 'shopper', label: 'Shopper type' },
-  { key: 'via', label: 'Recruited via' },
-  { key: 'brands', label: 'Screener: brands bought' },
-  { key: 'freq', label: 'Screener: how often they buy snacks' },
+  ...SEGMENTS.map((s) => ({ key: s.key, label: `Segment: ${s.label.toLowerCase()}` })),
 ]
 
 export const MAX_PASTE_ROWS = 2000
@@ -81,12 +76,12 @@ const HEADER_ALIASES: Record<ImportField, string[]> = {
   lastName: ['last name', 'surname', 'family name', 'last', 'sobrenome', 'ultimo nome'],
   email: ['email', 'e mail', 'email address', 'e mail address', 'mail', 'endereco de email'],
   phone: ['phone', 'phone number', 'telephone', 'tel', 'mobile', 'mobile phone', 'cell', 'cell phone', 'telefone', 'celular', 'whatsapp'],
-  market: ['market', 'country', 'region', 'mercado', 'pais', 'regiao'],
-  buyer: ['buyer status', 'buyer', 'buyer non buyer', 'purchaser', 'comprador', 'status de compra'],
-  shopper: ['shopper type', 'shopper', 'channel', 'shopping channel', 'tipo de comprador', 'canal', 'canal de compra'],
-  via: ['recruited via', 'source', 'recruitment source', 'origem', 'fonte', 'recrutado via'],
-  brands: ['brands', 'brands bought', 'brands bought last 6 months', 'marcas', 'marcas compradas'],
-  freq: ['frequency', 'purchase frequency', 'how often', 'how often they buy snacks', 'frequencia', 'frequencia de compra'],
+  age: ['age', 'age group', 'age range', 'idade', 'faixa etaria'],
+  area: ['area', 'area type', 'location type', 'urbanicity', 'tipo de area'],
+  gender: ['gender', 'sex', 'genero', 'sexo'],
+  household: ['household', 'household type', 'living situation', 'domicilio', 'composicao familiar'],
+  motivation: ['motivation', 'motivation type', 'shopper motivation', 'motivacao', 'tipo de motivacao'],
+  usage: ['user frequency', 'usage frequency', 'usage', 'frequencia de uso'],
 }
 
 function fieldForHeader(header: string): ImportField | null {
@@ -107,7 +102,7 @@ function fieldForHeader(header: string): ImportField | null {
 
 /** A first row is a header when it names at least one known field and holds no data-looking values. */
 export function detectHeader(firstRow: string[]): boolean {
-  return firstRow.some((c) => fieldForHeader(c) !== null) && !firstRow.some((c) => c.includes('@') || toMarket(c) !== null)
+  return firstRow.some((c) => fieldForHeader(c) !== null) && !firstRow.some((c) => c.includes('@'))
 }
 
 function mostly(values: string[], test: (v: string) => boolean) {
@@ -130,9 +125,7 @@ export function guessMapping(rows: string[][], hasHeader: boolean): Mapping {
   const columnValues = (i: number) => sample.map((r) => r[i])
   const byContent: Array<[ImportField, (v: string) => boolean]> = [
     ['email', isEmail],
-    ['market', (v) => toMarket(v) !== null],
-    ['buyer', (v) => toBuyer(v) !== null],
-    ['shopper', (v) => toShopper(v) !== null],
+    ...SEGMENTS.map((s): [ImportField, (v: string) => boolean] => [s.key, (v) => toSegment(s, v) !== null]),
     ['phone', isPhone],
   ]
   for (const [field, test] of byContent) {
@@ -164,7 +157,6 @@ export function mappingProblems(mapping: Mapping): string[] {
   for (const [f, n] of counts) if (n > 1) problems.push(`${n} columns are set to ${label(f)}. Choose one.`)
   if (!counts.has('name') && !counts.has('firstName')) problems.push('Choose which column has the respondent’s name.')
   if (counts.has('name') && (counts.has('firstName') || counts.has('lastName'))) problems.push('Use either Name or First name / Last name, not both.')
-  if (!counts.has('market')) problems.push('Choose which column has the market (US or UK).')
   return problems
 }
 
@@ -176,38 +168,16 @@ function isEmail(v: string) {
 function isPhone(v: string) {
   return /^\+?[\d\s().-]+$/.test(v) && v.replace(/\D/g, '').length >= 6
 }
-function toMarket(v: string): 'US' | 'UK' | null {
-  const n = norm(v)
-  if (['us', 'usa', 'u s', 'u s a', 'united states', 'united states of america', 'america', 'eua', 'estados unidos'].includes(n)) return 'US'
-  if (['uk', 'u k', 'gb', 'united kingdom', 'great britain', 'britain', 'england', 'reino unido', 'inglaterra'].includes(n)) return 'UK'
-  return null
-}
-function toBuyer(v: string): 'Buyer' | 'Non-buyer' | null {
-  const n = norm(v)
-  if (['buyer', 'yes', 'y', 'sim', 'comprador', 'true'].includes(n)) return 'Buyer'
-  if (['non buyer', 'nonbuyer', 'not buyer', 'no', 'n', 'nao', 'nao comprador', 'false'].includes(n)) return 'Non-buyer'
-  return null
-}
-function toShopper(v: string): string[] | null {
-  const parts = v.split(/[,;/|+&]| and | e /i).map(norm).filter(Boolean)
+/** The segment's values named in a cell (several, comma-separated, for multi-value segments). */
+function toSegment(def: SegmentDef, v: string): string[] | null {
+  const parts = def.multi ? v.split(/[,;|]/).map((p) => p.trim()).filter(Boolean) : [v]
   const out = new Set<string>()
   for (const p of parts) {
-    if (['both', 'ambos', 'all'].includes(p)) { out.add('Online'); out.add('In-store') }
-    else if (['online', 'on line', 'e commerce', 'ecommerce', 'internet', 'web'].includes(p)) out.add('Online')
-    else if (['in store', 'instore', 'store', 'offline', 'physical', 'loja', 'loja fisica', 'presencial'].includes(p)) out.add('In-store')
-    else return null
+    const match = def.options.find((o) => norm(o) === norm(p))
+    if (!match) return null
+    out.add(match)
   }
-  return out.size ? ['Online', 'In-store'].filter((s) => out.has(s)) : null
-}
-function toVia(v: string): Via | null {
-  const n = norm(v).replace(/^screener /, '')
-  if (n === 'us general') return 'US general'
-  if (n === 'uk general') return 'UK general'
-  if (['agency', 'agency upload', 'agency file', 'upload', 'upload agency file'].includes(n)) return 'Agency upload'
-  return null
-}
-function toList(v: string) {
-  return v.split(/[,;|]/).map((s) => s.trim()).filter(Boolean)
+  return out.size ? def.options.filter((o) => out.has(o)) : null
 }
 
 /* ---------- Rows ---------- */
@@ -216,12 +186,7 @@ export interface Draft {
   name: string
   email?: string
   phone?: string
-  market: 'US' | 'UK'
-  buyer?: 'Buyer' | 'Non-buyer'
-  shopper: string[]
-  via: Via
-  brands: string[]
-  freq: string
+  segments: SegmentValues
 }
 
 export interface CheckedRow {
@@ -256,27 +221,18 @@ export function checkRows(rows: string[][], mapping: Mapping, existing: readonly
     const phone = value('phone')
     if (phone && !isPhone(phone)) errors.push('Phone doesn’t look valid')
 
-    const marketRaw = value('market')
-    const market = toMarket(marketRaw)
-    if (!marketRaw) errors.push('Market is empty')
-    else if (!market) errors.push('Market must be US or UK')
+    const segments: SegmentValues = {}
+    for (const s of SEGMENTS) {
+      const raw = value(s.key)
+      const values = raw ? toSegment(s, raw) : []
+      if (values === null) errors.push(`${s.label} isn’t one of the segment’s values`)
+      else segments[s.key] = values
+    }
 
-    const buyerRaw = value('buyer')
-    const buyer = buyerRaw ? toBuyer(buyerRaw) : undefined
-    if (buyer === null) errors.push('Buyer status must be Buyer or Non-buyer')
-
-    const shopperRaw = value('shopper')
-    const shopper = shopperRaw ? toShopper(shopperRaw) : []
-    if (shopper === null) errors.push('Shopper type must be Online and/or In-store')
-
-    const viaRaw = value('via')
-    const via = viaRaw ? toVia(viaRaw) : 'Spreadsheet paste'
-    if (via === null) errors.push('Recruited via must be US general, UK general or Agency upload, or empty')
-
-    if (errors.length || !market || buyer === null || shopper === null || via === null) return { errors, draft: null }
+    if (errors.length) return { errors, draft: null }
     return {
       errors,
-      draft: { name, email: email || undefined, phone: phone || undefined, market, buyer, shopper, via, brands: toList(value('brands')), freq: value('freq') },
+      draft: { name, email: email || undefined, phone: phone || undefined, segments },
     }
   })
 }
@@ -294,17 +250,11 @@ export function createRespondents(drafts: Draft[], existing: readonly Respondent
         src: 'paste',
         email: d.email,
         phone: d.phone,
-        via: d.via,
-        market: d.market,
-        buyer: d.buyer,
-        shopper: d.shopper,
-        diary: M('Not assigned'),
+        segments: d.segments,
         ai: M('Not assigned'),
         live: M('Not assigned'),
         tech: 'Not needed',
         consent: 'Not submitted',
-        brands: d.brands,
-        freq: d.freq,
         addedOn: TODAY,
       },
       existing.length + i,

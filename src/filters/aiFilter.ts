@@ -1,6 +1,6 @@
-import { TODAY } from '../data/respondents'
+import { SEGMENTS, SOURCE_LABELS } from '../data/respondents'
 import { newCondition, type Condition } from './filters'
-import { addDays, type OperatorId } from './properties'
+import type { OperatorId } from './properties'
 
 /*
  * Simulated "AI Filter": the prototype has no model behind it, so this reads the
@@ -9,14 +9,13 @@ import { addDays, type OperatorId } from './properties'
  */
 
 export const AI_EXAMPLES = [
-  'UK respondents who haven’t signed the consent form',
-  'Completed the diary but not the AI interview',
-  'Not active in the last 7 days',
-  'Added in the past 30 days with at least 1 activity completed',
+  'Urban respondents who haven’t signed the consent form',
+  'Self captures completed but tech check not done',
+  'Backup respondents aged 18-31',
+  'Favorites who are repeat respondents',
 ]
 
 const NEG = /\b(not|no|never|without|missing|pending|unsigned|haven'?t|hasn'?t|didn'?t|isn'?t|aren'?t|yet to|incomplete|outstanding)\b/i
-const UNIT_DAYS: Record<string, number> = { day: 1, week: 7, month: 30, year: 365 }
 
 const cond = (prop: string, op: OperatorId, value: string | string[] = '') => newCondition(prop, op, value)
 
@@ -26,57 +25,40 @@ function clauseWith(text: string, re: RegExp): string | null {
   return clauses.find((c) => re.test(c)) ?? null
 }
 
-/** Status of a method (diary, AI interview) from the words around it. */
-function methodRule(prop: string, re: RegExp) {
-  return (text: string): Condition | null => {
-    const c = clauseWith(text, re)
-    if (c === null) return null
-    if (/not started|haven'?t started|yet to start/i.test(c)) return cond(prop, 'is', 'Not started')
-    if (/in progress|ongoing/i.test(c)) return cond(prop, 'is', 'In progress')
-    if (/partial|dropped|stopped/i.test(c)) return cond(prop, 'is', 'Partial')
-    if (/not assigned|unassigned/i.test(c)) return cond(prop, 'is', 'Not assigned')
-    if (NEG.test(c)) return cond(prop, 'is_not', 'Completed')
-    if (/complet|finish|done/i.test(c)) return cond(prop, 'is', 'Completed')
-    return cond(prop, 'is_not', 'Not assigned')
-  }
+// Other words for segment values; "never" and "other" are too common to read as one.
+const SEGMENT_ALIASES: Record<string, string[] | null> = {
+  man: ['man', 'men', 'male'],
+  woman: ['woman', 'women', 'female'],
+  never: null,
+  other: null,
 }
 
-function days(n: string | undefined, unit: string) {
-  return (n ? Number(n) : 1) * UNIT_DAYS[unit.toLowerCase()]
+/** Matches a segment value as whole words, so "urban" doesn't match "suburban". */
+function segmentValuePattern(value: string): RegExp | null {
+  const words = value in SEGMENT_ALIASES ? SEGMENT_ALIASES[value] : [value]
+  if (!words) return null
+  const escaped = words.map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+  return new RegExp(`(?<![\\w-])(${escaped.join('|')})(?![\\w-])`, 'i')
 }
 
 const RULES: Array<(text: string) => Condition | null> = [
+  ...SEGMENTS.map((s) => (t: string) => {
+    const found = s.options.filter((o) => segmentValuePattern(o)?.test(t))
+    if (!found.length) return null
+    if (s.multi) return cond(s.key, 'contains', found)
+    return found.length === 1 ? cond(s.key, 'is', found[0]) : cond(s.key, 'any_of', found)
+  }),
+  (t) => (/\b(agency|uploaded|upload)\b/i.test(t) ? cond('source', 'is', SOURCE_LABELS.upload) : null),
   (t) => {
-    const markets: string[] = []
-    if (/\b(uk|united kingdom|britain|british|england)\b/i.test(t)) markets.push('UK')
-    if (/\bUSA?\b/.test(t) || /\b(united states|america|american)\b/i.test(t)) markets.push('US')
-    if (!markets.length) return null
-    return markets.length === 1 ? cond('market', 'is', markets[0]) : cond('market', 'any_of', markets)
+    const roles = [/\bmain\b/i.test(t) && 'Main', /\bbackups?\b/i.test(t) && 'Backup'].filter((v): v is string => Boolean(v))
+    if (!roles.length) return null
+    return roles.length === 1 ? cond('role', 'is', roles[0]) : cond('role', 'any_of', roles)
   },
   (t) => {
-    if (/\bnon[-\s]?buyers?\b/i.test(t)) return cond('buyer', 'is', 'Non-buyer')
-    const c = clauseWith(t, /\bbuyers?\b/i)
+    const c = clauseWith(t, /\b(live|idis?|sessions?|self[-\s]?captures?)\b/i)
     if (c === null) return null
-    return cond('buyer', 'is', /\b(not|no)\s+buyers?\b/i.test(c) ? 'Non-buyer' : 'Buyer')
-  },
-  (t) => {
-    const types = [/\bonline\b/i.test(t) && 'Online', /\bin[-\s]?store\b/i.test(t) && 'In-store'].filter((v): v is string => Boolean(v))
-    return types.length ? cond('shopper', 'contains', types) : null
-  },
-  (t) => (/\b(agency|uploaded|upload)\b/i.test(t) ? cond('via', 'is', 'Agency upload') : null),
-  (t) => {
-    if (/needs attention|something missing|missing (something|info|steps?)|not ready|blocked/i.test(t)) return cond('readiness', 'is', 'Something missing')
-    return /\bready\b/i.test(t) ? cond('readiness', 'is', 'Ready') : null
-  },
-  methodRule('diary', /\bdiar(y|ies)\b/i),
-  methodRule('ai', /\bai[-\s]?interviews?\b/i),
-  (t) => {
-    const c = clauseWith(t, /\b(live|idis?|sessions?)\b/i)
-    if (c === null) return null
-    if (/complet|finish|done/i.test(c) && !NEG.test(c)) return cond('live', 'is', 'Completed')
-    if (/not assigned|unassigned/i.test(c) || NEG.test(c)) return cond('live', 'is', 'Not assigned')
-    if (/schedul|assigned|booked|invited/i.test(c)) return cond('live', 'is', 'Assigned')
-    return cond('live', 'is_not', 'Not assigned')
+    // A self capture is either recorded or not; there is no assigned step.
+    return cond('live', 'is', NEG.test(c) || /unassigned/i.test(c) ? 'Not completed' : 'Completed')
   },
   (t) => {
     const c = clauseWith(t, /\bconsent\b/i)
@@ -95,31 +77,7 @@ const RULES: Array<(text: string) => Condition | null> = [
   },
   (t) => {
     if (/first[-\s]time|never (taken part|participated)|new participants?/i.test(t)) return cond('prior', 'is', 'false')
-    return /taken part before|participated before|returning|repeat participants?/i.test(t) ? cond('prior', 'is', 'true') : null
-  },
-  (t) => {
-    const n = /(?:at least|minimum of)\s+(\d+)\s+activit/i.exec(t) ?? /(\d+)\s*(?:\+|or more)\s+activit/i.exec(t)
-    if (n) return cond('done', 'gte', n[1])
-    return /\b(no|zero)\s+(completed\s+)?activit/i.test(t) ? cond('done', 'eq', '0') : null
-  },
-  (t) => {
-    const m = /\badded\b[^,.;]*?(?:last|past|this)\s+(\d+)?\s*(day|week|month|year)s?/i.exec(t)
-    return m ? cond('added', 'within', `past-${days(m[1], m[2])}`) : null
-  },
-  (t) => {
-    const quiet = /\b(?:no|without|not)\s+(?:been\s+)?(?:active|activity|contacted|heard from)\b[^,.;]*?(?:last|past)\s+(\d+)?\s*(day|week|month|year)s?/i.exec(t)
-    if (quiet) return cond('lastActivity', 'before', addDays(TODAY, -days(quiet[1], quiet[2])))
-    const active = /\b(?:active|activity)\b[^,.;]*?(?:last|past)\s+(\d+)?\s*(day|week|month|year)s?/i.exec(t)
-    return active ? cond('lastActivity', 'within', `past-${days(active[1], active[2])}`) : null
-  },
-  (t) => {
-    const brands = [...t.matchAll(/\bbrand\s+([a-d])\b/gi)].map((m) => `Brand ${m[1].toUpperCase()}`)
-    return brands.length ? cond('brands', 'contains', [...new Set(brands)]) : null
-  },
-  (t) => {
-    const freq = [...new Set([...t.matchAll(/\b(weekly|monthly|rarely)\b/gi)].map((m) => m[1][0].toUpperCase() + m[1].slice(1).toLowerCase()))]
-    if (!freq.length) return null
-    return freq.length === 1 ? cond('freq', 'is', freq[0]) : cond('freq', 'any_of', freq)
+    return /taken part before|participated before|returning|repeat (participants?|respondents?)/i.test(t) ? cond('prior', 'is', 'true') : null
   },
 ]
 
