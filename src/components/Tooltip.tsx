@@ -39,20 +39,14 @@ export function Tooltip({ label, anchor }: { label: string; anchor: DOMRect }) {
   )
 }
 
-/**
- * Text that truncates with an ellipsis and shows its full value in a tooltip on hover,
- * only while it is actually cut off.
- */
-export function TruncatedText({ className, children }: { className: string; children: ReactNode }) {
-  const ref = useRef<HTMLSpanElement>(null)
+/** Shows a tooltip for an element after the hover delay; `hide` cancels or removes it. */
+function useHoverTooltip() {
   const timer = useRef<number | undefined>(undefined)
   const [tip, setTip] = useState<{ label: string; anchor: DOMRect } | null>(null)
 
-  const show = () => {
-    const el = ref.current
-    if (!el || el.scrollWidth <= el.clientWidth) return
+  const show = (el: HTMLElement, label: string) => {
     window.clearTimeout(timer.current)
-    timer.current = window.setTimeout(() => setTip({ label: el.textContent ?? '', anchor: el.getBoundingClientRect() }), SHOW_DELAY)
+    timer.current = window.setTimeout(() => setTip({ label, anchor: el.getBoundingClientRect() }), SHOW_DELAY)
   }
   const hide = () => {
     window.clearTimeout(timer.current)
@@ -73,12 +67,43 @@ export function TruncatedText({ className, children }: { className: string; chil
   }, [tip])
   useEffect(() => () => window.clearTimeout(timer.current), [])
 
+  return { tooltip: tip && <Tooltip label={tip.label} anchor={tip.anchor} />, show, hide }
+}
+
+/**
+ * Text that truncates with an ellipsis and shows its full value in a tooltip on hover,
+ * only while it is actually cut off.
+ */
+export function TruncatedText({ className, children }: { className: string; children: ReactNode }) {
+  const ref = useRef<HTMLSpanElement>(null)
+  const { tooltip, show, hide } = useHoverTooltip()
+
+  const onEnter = () => {
+    const el = ref.current
+    if (!el || el.scrollWidth <= el.clientWidth) return
+    show(el, el.textContent ?? '')
+  }
+
   return (
     <>
-      <span ref={ref} className={className} onMouseEnter={show} onMouseLeave={hide}>
+      <span ref={ref} className={className} onMouseEnter={onEnter} onMouseLeave={hide}>
         {children}
       </span>
-      {tip && <Tooltip label={tip.label} anchor={tip.anchor} />}
+      {tooltip}
+    </>
+  )
+}
+
+/** An icon that stands in for a text label: the label is in a tooltip and for screen readers. */
+export function IconLabel({ className, label, children }: { className: string; label: string; children: ReactNode }) {
+  const { tooltip, show, hide } = useHoverTooltip()
+  return (
+    <>
+      <span className={className} onMouseEnter={(e) => show(e.currentTarget, label)} onMouseLeave={hide}>
+        {children}
+        <span className="sr-only">{label}</span>
+      </span>
+      {tooltip}
     </>
   )
 }

@@ -57,6 +57,30 @@ const PATHS = {
   arrowsLeftRight: <path d="M13.5 5h-11M5 2.5 2.5 5 5 7.5M2.5 11h11M11 8.5l2.5 2.5-2.5 2.5" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" fill="none" />,
   arrowsIn: <path d="M13.5 2.5 9.5 6.5M9.5 3v3.5H13M2.5 13.5l4-4M3 9.5h3.5V13" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" fill="none" />,
   pencil: <path d="M10.5 2.5l3 3-8 8H2.5v-3l8-8ZM8.5 4.5l3 3" fill="none" stroke="currentColor" strokeLinejoin="round" />,
+  /* Status column headers: live session, tech check, consent form, taken part before */
+  videoChat: (
+    <>
+      <path d="M8 1.5c3.59 0 6.5 2.69 6.5 6s-2.91 6-6.5 6a7 7 0 0 1-2.9-.62L1.5 14.5l.95-3.1A5.7 5.7 0 0 1 1.5 7.5c0-3.31 2.91-6 6.5-6Z" fill="none" stroke="currentColor" strokeLinejoin="round" />
+      <rect x="4.5" y="5.75" width="4.5" height="3.5" rx=".75" fill="currentColor" />
+      <path d="M9.5 7.5 11.5 6.25v2.5L9.5 7.5Z" fill="currentColor" stroke="currentColor" strokeLinejoin="round" />
+    </>
+  ),
+  monitorCheck: (
+    <>
+      <path d="M9 10.5H2.5a1 1 0 0 1-1-1v-6a1 1 0 0 1 1-1h11a1 1 0 0 1 1 1V8M5.5 13.5h3M7 10.5v3" fill="none" stroke="currentColor" strokeLinecap="round" />
+      <circle cx="12.5" cy="12" r="3" fill="currentColor" />
+      <path d="M11.2 12l.9.9 1.6-1.7" fill="none" stroke="var(--surface-background, #fff)" strokeLinecap="round" strokeLinejoin="round" />
+    </>
+  ),
+  formCheck: (
+    <>
+      <path d="M8 14.5H3.5a1 1 0 0 1-1-1v-11a1 1 0 0 1 1-1h7a1 1 0 0 1 1 1V8M5 4.5h4M5 7h4M5 9.5h2" fill="none" stroke="currentColor" strokeLinecap="round" />
+      <circle cx="12.5" cy="12" r="3" fill="currentColor" />
+      <path d="M11.2 12l.9.9 1.6-1.7" fill="none" stroke="var(--surface-background, #fff)" strokeLinecap="round" strokeLinejoin="round" />
+    </>
+  ),
+  repeat: <path d="M2.5 8V7a2.5 2.5 0 0 1 2.5-2.5h8.5M11.5 2.5l2 2-2 2M13.5 8v1a2.5 2.5 0 0 1-2.5 2.5H2.5M4.5 13.5l-2-2 2-2" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" />,
+  pin: <path d="M5.5 2h5M6.5 2v4l-2 3h7l-2-3V2M8 9v5" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" />,
   trash: <path d="M13.5 3H11v-.5A1.5 1.5 0 0 0 9.5 1h-3A1.5 1.5 0 0 0 5 2.5V3H2.5a.5.5 0 0 0 0 1H3v9a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V4h.5a.5.5 0 0 0 0-1ZM6 2.5a.5.5 0 0 1 .5-.5h3a.5.5 0 0 1 .5.5V3H6v-.5ZM12 13H4V4h8v9ZM7 6.5v4a.5.5 0 0 1-1 0v-4a.5.5 0 0 1 1 0Zm3 0v4a.5.5 0 0 1-1 0v-4a.5.5 0 0 1 1 0Z" fill="currentColor" />,
 }
 

@@ -1,7 +1,33 @@
+import { timezoneInfo } from './timezones'
+
 export type MethodStatus = { s: string; sub: string }
 export type Source = 'client' | 'rio' | 'upload' | 'paste'
 export type Via = 'US general' | 'UK general' | 'Agency upload' | 'Spreadsheet paste'
 export type Screener = 'US general' | 'UK general'
+export type InterviewRole = 'Main' | 'Backup'
+
+export interface InterviewSession {
+  id: number
+  name: string
+  /** Display date and time, in the same form as the live session status. */
+  when: string
+}
+
+/** Live interview sessions of the project, offered in the "Assign to Interview" column. */
+export const INTERVIEW_SESSIONS: readonly InterviewSession[] = [
+  { id: 2101, name: 'US shoppers · Session 1', when: 'Oct 23, 15:30' },
+  { id: 2102, name: 'US shoppers · Session 2', when: 'Oct 24, 10:00' },
+  { id: 2103, name: 'US shoppers · Session 3', when: 'Oct 25, 14:00' },
+  { id: 2104, name: 'UK shoppers · Session 1', when: 'Oct 27, 11:00' },
+  { id: 2105, name: 'UK shoppers · Session 2', when: 'Oct 28, 09:30' },
+  { id: 2106, name: 'US shoppers · Session 4', when: 'Nov 3, 13:00' },
+]
+
+export const INTERVIEW_ROLES: readonly InterviewRole[] = ['Main', 'Backup']
+
+export function interviewSession(r: Respondent): InterviewSession | undefined {
+  return INTERVIEW_SESSIONS.find((s) => s.id === r.interview)
+}
 
 export interface Respondent {
   id: string
@@ -16,6 +42,12 @@ export interface Respondent {
   /** Optional: pasted spreadsheets do not always include it. */
   buyer?: 'Buyer' | 'Non-buyer'
   shopper: string[]
+  /** IANA ID, e.g. "America/New_York" (see data/timezones). Unset when unknown. */
+  timezone?: string
+  /** ID of the live interview session the respondent is assigned to (see INTERVIEW_SESSIONS). */
+  interview?: number
+  /** Role in the live interview; can be set before a session is assigned. */
+  role?: InterviewRole
   diary: MethodStatus
   ai: MethodStatus
   live: MethodStatus
@@ -49,29 +81,29 @@ const raw: RawRespondent[] = [
   { id: 'r2', pid: 'R-1002', name: 'Sarah Mitchell', src: 'client', email: 'sarah.mitchell@example.co.uk', phone: '+44 20 5550 0102', via: 'UK general', market: 'UK', buyer: 'Non-buyer', shopper: ['In-store'], diary: M('In progress', 'Day 9 of 14'), ai: M('Not started', 'Assigned Oct 15'), live: M('Not assigned'), tech: 'Not needed', consent: 'Signed', brands: ['None of these'], freq: 'Rarely', addedOn: '2026-09-05', lastActivity: '2026-10-15' },
   { id: 'r3', pid: 'R-1003', name: 'Jessica Moore', src: 'rio', rio: 'RIO-7F3K21', via: 'US general', market: 'US', buyer: 'Buyer', shopper: ['Online'], diary: M('Completed', 'Oct 11'), ai: M('Partial', 'Stopped at question 6'), live: M('Not assigned'), tech: 'Not needed', consent: 'Signed', brands: ['Brand A', 'Brand B', 'Brand C', 'Brand D'], freq: 'Weekly', addedOn: '2026-09-08', lastActivity: '2026-10-11' },
   { id: 'r4', pid: 'R-1004', name: 'Jessica Turner', src: 'rio', rio: 'RIO-9A2M40', via: 'US general', market: 'US', buyer: 'Non-buyer', shopper: ['In-store'], diary: M('Not started', 'Assigned Oct 9'), ai: M('Not assigned'), live: M('Not assigned'), tech: 'Not needed', consent: 'Not submitted', brands: ['None of these'], freq: 'Rarely', addedOn: '2026-09-08' },
-  { id: 'r5', pid: 'R-1005', name: 'James Owens', src: 'upload', email: 'james.owens@example.com', phone: '+1 555 0105', via: 'Agency upload', market: 'US', buyer: 'Buyer', shopper: ['Online', 'In-store'], diary: M('Completed', 'Oct 10'), ai: M('Completed', 'Oct 13'), live: M('Scheduled', 'Oct 24, 10:00'), tech: 'Pending', consent: 'Signed', brands: ['Brand B'], freq: 'Monthly', addedOn: '2026-10-03', lastActivity: '2026-10-13' },
+  { id: 'r5', pid: 'R-1005', name: 'James Owens', src: 'upload', email: 'james.owens@example.com', phone: '+1 555 0105', via: 'Agency upload', market: 'US', buyer: 'Buyer', shopper: ['Online', 'In-store'], diary: M('Completed', 'Oct 10'), ai: M('Completed', 'Oct 13'), live: M('Scheduled', 'Oct 24, 10:00'), tech: 'Pending', consent: 'Signed', brands: ['Brand B'], freq: 'Monthly', interview: 2102, role: 'Main', addedOn: '2026-10-03', lastActivity: '2026-10-13' },
   { id: 'r6', pid: 'R-1006', name: 'Priya Nair', src: 'client', email: 'priya.nair@example.co.uk', phone: '+44 20 5550 0106', via: 'UK general', market: 'UK', buyer: 'Buyer', shopper: ['Online'], diary: M('Completed', 'Oct 9'), ai: M('Completed', 'Oct 12'), live: M('Completed', 'Oct 15'), tech: 'Passed', consent: 'Signed', brands: ['Brand A', 'Brand B', 'Brand D'], freq: 'Weekly', addedOn: '2026-09-12', lastActivity: '2026-10-15' },
   { id: 'r7', pid: 'R-1007', name: 'Lucas Reid', src: 'upload', email: 'lucas.reid@example.co.uk', phone: '+44 20 5550 0107', via: 'Agency upload', market: 'UK', buyer: 'Non-buyer', shopper: ['In-store'], diary: M('In progress', 'Day 4 of 14'), ai: M('Not assigned'), live: M('Not assigned'), tech: 'Not needed', consent: 'Signed', brands: ['None of these'], freq: 'Rarely', addedOn: '2026-10-03', lastActivity: '2026-10-17' },
-  { id: 'r8', pid: 'R-1008', name: 'Ana Costa', src: 'client', email: 'ana.costa@example.com', phone: '+1 555 0108', via: 'US general', market: 'US', buyer: 'Non-buyer', shopper: ['Online'], diary: M('Completed', 'Oct 12'), ai: M('Completed', 'Oct 15'), live: M('Not scheduled', 'Invited Oct 16'), tech: 'Pending', consent: 'Signed', brands: ['None of these'], freq: 'Rarely', addedOn: '2026-09-15', lastActivity: '2026-10-16' },
+  { id: 'r8', pid: 'R-1008', name: 'Ana Costa', src: 'client', email: 'ana.costa@example.com', phone: '+1 555 0108', via: 'US general', market: 'US', buyer: 'Non-buyer', shopper: ['Online'], diary: M('Completed', 'Oct 12'), ai: M('Completed', 'Oct 15'), live: M('Not scheduled', 'Invited Oct 16'), tech: 'Pending', consent: 'Signed', brands: ['None of these'], freq: 'Rarely', interview: 2102, role: 'Backup', addedOn: '2026-09-15', lastActivity: '2026-10-16' },
   { id: 'r9', pid: 'R-1009', name: 'Tom Bennett', src: 'client', email: 'tom.bennett@example.co.uk', phone: '+44 20 5550 0109', via: 'UK general', market: 'UK', buyer: 'Buyer', shopper: ['In-store'], diary: M('Completed', 'Oct 13'), ai: M('Partial', 'Stopped at question 3'), live: M('Not assigned'), tech: 'Not needed', consent: 'Signed', brands: ['Brand C'], freq: 'Monthly', addedOn: '2026-09-18', lastActivity: '2026-10-13' },
   { id: 'r10', pid: 'R-1010', name: 'Mei Lin', src: 'client', email: 'mei.lin@example.com', phone: '+1 555 0110', via: 'US general', market: 'US', buyer: 'Buyer', shopper: ['Online'], diary: M('Completed', 'Oct 14'), ai: M('Not started', 'Assigned Oct 16'), live: M('Not assigned'), tech: 'Not needed', consent: 'Not submitted', brands: ['Brand A'], freq: 'Weekly', addedOn: '2026-09-20', lastActivity: '2026-10-16' },
   { id: 'r11', pid: 'R-1011', name: 'Omar Shah', src: 'upload', email: 'omar.shah@example.co.uk', phone: '+44 20 5550 0111', via: 'Agency upload', market: 'UK', buyer: 'Non-buyer', shopper: ['Online', 'In-store'], diary: M('Not started', 'Assigned Oct 9'), ai: M('Not assigned'), live: M('Not assigned'), tech: 'Not needed', consent: 'Not submitted', brands: ['Brand B', 'Brand C'], freq: 'Monthly', addedOn: '2026-10-03' },
-  { id: 'r12', pid: 'R-1012', name: 'Grace Holloway', src: 'client', email: 'grace.holloway@example.com', phone: '+1 555 0112', via: 'US general', market: 'US', buyer: 'Non-buyer', shopper: ['In-store'], diary: M('Completed', 'Oct 11'), ai: M('Completed', 'Oct 14'), live: M('Scheduled', 'Oct 25, 14:00'), tech: 'Passed', consent: 'Signed', brands: ['None of these'], freq: 'Rarely', addedOn: '2026-09-22', lastActivity: '2026-10-14' },
+  { id: 'r12', pid: 'R-1012', name: 'Grace Holloway', src: 'client', email: 'grace.holloway@example.com', phone: '+1 555 0112', via: 'US general', market: 'US', buyer: 'Non-buyer', shopper: ['In-store'], diary: M('Completed', 'Oct 11'), ai: M('Completed', 'Oct 14'), live: M('Scheduled', 'Oct 25, 14:00'), tech: 'Passed', consent: 'Signed', brands: ['None of these'], freq: 'Rarely', interview: 2103, role: 'Main', addedOn: '2026-09-22', lastActivity: '2026-10-14' },
   { id: 'r13', pid: 'R-1013', name: 'Daniel Park', src: 'client', email: 'daniel.park@example.com', phone: '+1 555 0113', via: 'US general', market: 'US', buyer: 'Buyer', shopper: ['Online'], diary: M('Completed', 'Oct 8'), ai: M('Completed', 'Oct 11'), live: M('Completed', 'Oct 14'), tech: 'Passed', consent: 'Signed', brands: ['Brand A', 'Brand D'], freq: 'Weekly', addedOn: '2026-09-01', lastActivity: '2026-10-14' },
-  { id: 'r14', pid: 'R-1014', name: 'Emily Walsh', src: 'client', email: 'emily.walsh@example.co.uk', phone: '+44 20 5550 0114', via: 'UK general', market: 'UK', buyer: 'Buyer', shopper: ['Online', 'In-store'], diary: M('In progress', 'Day 7 of 14'), ai: M('Not started', 'Assigned Oct 17'), live: M('Scheduled', 'Oct 27, 11:00'), tech: 'Pending', consent: 'Signed', brands: ['Brand B', 'Brand C'], freq: 'Monthly', addedOn: '2026-09-25', lastActivity: '2026-10-18' },
+  { id: 'r14', pid: 'R-1014', name: 'Emily Walsh', src: 'client', email: 'emily.walsh@example.co.uk', phone: '+44 20 5550 0114', via: 'UK general', market: 'UK', buyer: 'Buyer', shopper: ['Online', 'In-store'], diary: M('In progress', 'Day 7 of 14'), ai: M('Not started', 'Assigned Oct 17'), live: M('Scheduled', 'Oct 27, 11:00'), tech: 'Pending', consent: 'Signed', brands: ['Brand B', 'Brand C'], freq: 'Monthly', interview: 2104, role: 'Main', addedOn: '2026-09-25', lastActivity: '2026-10-18' },
   { id: 'r15', pid: 'R-1015', name: 'Carlos Mendoza', src: 'upload', email: 'carlos.mendoza@example.com', phone: '+1 555 0115', via: 'Agency upload', market: 'US', buyer: 'Non-buyer', shopper: ['In-store'], diary: M('Not started', 'Assigned Oct 9'), ai: M('Not assigned'), live: M('Not assigned'), tech: 'Not needed', consent: 'Not submitted', brands: ['None of these'], freq: 'Rarely', addedOn: '2026-10-03' },
   { id: 'r16', pid: 'R-1016', name: 'Hannah Jensen', src: 'client', email: 'hannah.jensen@example.com', phone: '+1 555 0116', via: 'US general', market: 'US', buyer: 'Buyer', shopper: ['Online', 'In-store'], diary: M('Completed', 'Oct 15'), ai: M('Partial', 'Stopped at question 8'), live: M('Not scheduled', 'Invited Oct 18'), tech: 'Pending', consent: 'Signed', brands: ['Brand A', 'Brand B', 'Brand C'], freq: 'Weekly', addedOn: '2026-09-10', lastActivity: '2026-10-18' },
   { id: 'r17', pid: 'R-1017', name: 'Oliver Thompson', src: 'client', email: 'oliver.thompson@example.co.uk', phone: '+44 20 5550 0117', via: 'UK general', market: 'UK', buyer: 'Non-buyer', shopper: ['Online'], diary: M('Completed', 'Oct 12'), ai: M('Completed', 'Oct 15'), live: M('Not assigned'), tech: 'Not needed', consent: 'Signed', brands: ['None of these'], freq: 'Rarely', addedOn: '2026-09-14', lastActivity: '2026-10-15' },
   { id: 'r18', pid: 'R-1018', name: 'Sofia Garcia', src: 'client', email: 'sofia.garcia@example.com', phone: '+1 555 0118', via: 'US general', market: 'US', buyer: 'Buyer', shopper: ['In-store'], diary: M('Completed', 'Oct 10'), ai: M('Completed', 'Oct 13'), live: M('Completed', 'Oct 17'), tech: 'Passed', consent: 'Signed', brands: ['Brand C'], freq: 'Monthly', addedOn: '2026-09-03', lastActivity: '2026-10-17' },
   { id: 'r19', pid: 'R-1019', name: 'Liam Fletcher', src: 'upload', email: 'liam.fletcher@example.co.uk', phone: '+44 20 5550 0119', via: 'Agency upload', market: 'UK', buyer: 'Buyer', shopper: ['Online'], diary: M('In progress', 'Day 2 of 14'), ai: M('Not assigned'), live: M('Not assigned'), tech: 'Not needed', consent: 'Signed', brands: ['Brand A'], freq: 'Weekly', addedOn: '2026-10-03', lastActivity: '2026-10-19' },
   { id: 'r20', pid: 'R-1020', name: 'Chloe Dubois', src: 'client', email: 'chloe.dubois@example.com', phone: '+1 555 0120', via: 'US general', market: 'US', buyer: 'Non-buyer', shopper: ['Online'], diary: M('Not started', 'Assigned Oct 14'), ai: M('Not started', 'Assigned Oct 14'), live: M('Not assigned'), tech: 'Not needed', consent: 'Not submitted', brands: ['None of these'], freq: 'Rarely', addedOn: '2026-10-08' },
-  { id: 'r21', pid: 'R-1021', name: 'Noah Kowalski', src: 'client', email: 'noah.kowalski@example.com', phone: '+1 555 0121', via: 'US general', market: 'US', buyer: 'Buyer', shopper: ['Online', 'In-store'], diary: M('Completed', 'Oct 9'), ai: M('Completed', 'Oct 12'), live: M('Scheduled', 'Oct 23, 15:30'), tech: 'Passed', consent: 'Signed', brands: ['Brand B', 'Brand D'], freq: 'Weekly', addedOn: '2026-09-06', lastActivity: '2026-10-12' },
+  { id: 'r21', pid: 'R-1021', name: 'Noah Kowalski', src: 'client', email: 'noah.kowalski@example.com', phone: '+1 555 0121', via: 'US general', market: 'US', buyer: 'Buyer', shopper: ['Online', 'In-store'], diary: M('Completed', 'Oct 9'), ai: M('Completed', 'Oct 12'), live: M('Scheduled', 'Oct 23, 15:30'), tech: 'Passed', consent: 'Signed', brands: ['Brand B', 'Brand D'], freq: 'Weekly', interview: 2101, role: 'Main', addedOn: '2026-09-06', lastActivity: '2026-10-12' },
   { id: 'r22', pid: 'R-1022', name: 'Isabella Rossi', src: 'client', email: 'isabella.rossi@example.co.uk', phone: '+44 20 5550 0122', via: 'UK general', market: 'UK', buyer: 'Buyer', shopper: ['In-store'], diary: M('Completed', 'Oct 13'), ai: M('Not started', 'Assigned Oct 16'), live: M('Not assigned'), tech: 'Not needed', consent: 'Signed', brands: ['Brand C', 'Brand D'], freq: 'Monthly', addedOn: '2026-09-19', lastActivity: '2026-10-16' },
   { id: 'r23', pid: 'R-1023', name: 'Ethan Brooks', src: 'upload', email: 'ethan.brooks@example.com', phone: '+1 555 0123', via: 'Agency upload', market: 'US', buyer: 'Non-buyer', shopper: ['Online'], diary: M('Partial', 'Day 5 of 14'), ai: M('Not assigned'), live: M('Not assigned'), tech: 'Not needed', consent: 'Signed', brands: ['Brand B'], freq: 'Rarely', addedOn: '2026-10-03', lastActivity: '2026-10-08' },
   { id: 'r24', pid: 'R-1024', name: 'Amelia Vaughan', src: 'client', email: 'amelia.vaughan@example.co.uk', phone: '+44 20 5550 0124', via: 'UK general', market: 'UK', buyer: 'Non-buyer', shopper: ['Online', 'In-store'], diary: M('Completed', 'Oct 11'), ai: M('Completed', 'Oct 14'), live: M('Completed', 'Oct 18'), tech: 'Passed', consent: 'Signed', brands: ['None of these'], freq: 'Rarely', addedOn: '2026-09-09', lastActivity: '2026-10-18' },
-  { id: 'r25', pid: 'R-1025', name: 'Lucia Alvarez', src: 'client', email: 'lucia.alvarez@example.com', phone: '+1 555 0125', via: 'US general', market: 'US', buyer: 'Buyer', shopper: ['Online'], diary: M('In progress', 'Day 11 of 14'), ai: M('Completed', 'Oct 13'), live: M('Not scheduled', 'Invited Oct 19'), tech: 'Pending', consent: 'Not submitted', brands: ['Brand A', 'Brand C'], freq: 'Weekly', addedOn: '2026-09-27', lastActivity: '2026-10-19' },
+  { id: 'r25', pid: 'R-1025', name: 'Lucia Alvarez', src: 'client', email: 'lucia.alvarez@example.com', phone: '+1 555 0125', via: 'US general', market: 'US', buyer: 'Buyer', shopper: ['Online'], diary: M('In progress', 'Day 11 of 14'), ai: M('Completed', 'Oct 13'), live: M('Not scheduled', 'Invited Oct 19'), tech: 'Pending', consent: 'Not submitted', brands: ['Brand A', 'Brand C'], freq: 'Weekly', interview: 2103, role: 'Backup', addedOn: '2026-09-27', lastActivity: '2026-10-19' },
   { id: 'r26', pid: 'R-1026', name: 'Benjamin Hart', src: 'client', email: 'benjamin.hart@example.com', phone: '+1 555 0126', via: 'US general', market: 'US', buyer: 'Non-buyer', shopper: ['In-store'], diary: M('Completed', 'Oct 7'), ai: M('Not assigned'), live: M('Not assigned'), tech: 'Not needed', consent: 'Signed', brands: ['None of these'], freq: 'Rarely', addedOn: '2026-08-28', lastActivity: '2026-10-07' },
-  { id: 'r27', pid: 'R-1027', name: 'Freya Nolan', src: 'upload', email: 'freya.nolan@example.co.uk', phone: '+44 20 5550 0127', via: 'Agency upload', market: 'UK', buyer: 'Buyer', shopper: ['Online', 'In-store'], diary: M('Completed', 'Oct 14'), ai: M('Completed', 'Oct 17'), live: M('Scheduled', 'Oct 28, 09:30'), tech: 'Pending', consent: 'Signed', brands: ['Brand A', 'Brand B'], freq: 'Weekly', addedOn: '2026-10-03', lastActivity: '2026-10-17' },
+  { id: 'r27', pid: 'R-1027', name: 'Freya Nolan', src: 'upload', email: 'freya.nolan@example.co.uk', phone: '+44 20 5550 0127', via: 'Agency upload', market: 'UK', buyer: 'Buyer', shopper: ['Online', 'In-store'], diary: M('Completed', 'Oct 14'), ai: M('Completed', 'Oct 17'), live: M('Scheduled', 'Oct 28, 09:30'), tech: 'Pending', consent: 'Signed', brands: ['Brand A', 'Brand B'], freq: 'Weekly', interview: 2105, role: 'Main', addedOn: '2026-10-03', lastActivity: '2026-10-17' },
   { id: 'r28', pid: 'R-1028', name: 'Mateo Lopez', src: 'client', email: 'mateo.lopez@example.com', phone: '+1 555 0128', via: 'US general', market: 'US', buyer: 'Buyer', shopper: ['Online'], diary: M('Completed', 'Oct 12'), ai: M('Partial', 'Stopped at question 2'), live: M('Not assigned'), tech: 'Not needed', consent: 'Signed', brands: ['Brand D'], freq: 'Monthly', addedOn: '2026-09-16', lastActivity: '2026-10-15' },
   { id: 'r29', pid: 'R-1029', name: 'Harriet Clarke', src: 'client', email: 'harriet.clarke@example.co.uk', phone: '+44 20 5550 0129', via: 'UK general', market: 'UK', buyer: 'Non-buyer', shopper: ['In-store'], diary: M('Not started', 'Assigned Oct 16'), ai: M('Not assigned'), live: M('Not assigned'), tech: 'Not needed', consent: 'Not submitted', brands: ['None of these'], freq: 'Rarely', addedOn: '2026-10-12' },
   { id: 'r30', pid: 'R-1030', name: 'Victor Silva', src: 'client', email: 'victor.silva@example.com', phone: '+1 555 0130', via: 'US general', market: 'US', buyer: 'Buyer', shopper: ['Online', 'In-store'], diary: M('Completed', 'Oct 13'), ai: M('Completed', 'Oct 16'), live: M('Completed', 'Oct 20'), tech: 'Passed', consent: 'Signed', brands: ['Brand A', 'Brand B', 'Brand C'], freq: 'Weekly', addedOn: '2026-09-04', lastActivity: '2026-10-20' },
@@ -105,9 +137,27 @@ export function enrichRespondent(r: RawRespondent, i: number): Respondent {
   }
 }
 
-export const respondents: Respondent[] = raw.map(enrichRespondent)
+/** Sample timezones: panel recruits have none; US respondents rotate through US zones by ID. */
+const US_SAMPLE_ZONES = ['America/New_York', 'America/Chicago', 'America/Denver', 'America/Los_Angeles']
+function sampleTimezone(r: RawRespondent): string | undefined {
+  if (r.src === 'rio') return undefined
+  if (r.market === 'UK') return 'Europe/London'
+  return US_SAMPLE_ZONES[(Number(r.pid.replace(/\D/g, '')) || 0) % US_SAMPLE_ZONES.length]
+}
+
+export const respondents: Respondent[] = raw.map((r, i) => enrichRespondent({ ...r, timezone: r.timezone ?? sampleTimezone(r) }, i))
 
 export const limitPII = false
+
+/**
+ * Scales a count from the loaded sample to the whole project, so every count on the page
+ * (metrics, filter results) uses the same rule. Never rounds a match down to zero.
+ */
+export function projectCount(sampleCount: number, sampleSize: number, total: number) {
+  if (sampleCount === 0) return 0
+  if (sampleCount === sampleSize) return total
+  return Math.max(1, Math.round((sampleCount / sampleSize) * total))
+}
 
 export function answersIn(r: Respondent): Screener {
   if (r.via === 'Agency upload' || r.via === 'Spreadsheet paste') return r.market === 'US' ? 'US general' : 'UK general'
@@ -133,11 +183,20 @@ export function sourceLabel(r: Respondent): string {
   return SOURCE_LABELS[r.src]
 }
 
-/** Sample timezones: the data has none, so US respondents rotate through US zones by ID. */
-const US_TIMEZONES = ['US Eastern', 'US Central', 'US Pacific']
-export function timezoneLabel(r: Respondent): string {
-  if (r.market === 'UK') return 'UK (London)'
-  return US_TIMEZONES[(Number(r.pid.replace(/\D/g, '')) || 0) % US_TIMEZONES.length]
+/** "America/New_York · UTC-5", or null when the timezone is unknown. */
+export function timezoneLabel(r: Respondent): string | null {
+  return r.timezone ? `${r.timezone} · ${timezoneInfo(r.timezone).offsetLabel}` : null
+}
+
+/* ---------- Options offered when editing a cell ---------- */
+
+export const MARKETS: ReadonlyArray<Respondent['market']> = ['US', 'UK']
+export const BUYER_STATUSES: ReadonlyArray<NonNullable<Respondent['buyer']>> = ['Buyer', 'Non-buyer']
+export const SHOPPER_TYPES = ['Online', 'In-store']
+
+/** Panel recruits have no contact details, and they stay read-only while PII is limited. */
+export function canEditContact(r: Respondent) {
+  return r.src !== 'rio' && !limitPII
 }
 
 export function idLine(r: Respondent): string {

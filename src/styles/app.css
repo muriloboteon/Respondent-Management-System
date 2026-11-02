@@ -614,6 +614,8 @@ svg.icon-sm { width: 12px; height: 12px; }
 .unsaved .dot { width: 6px; height: 6px; border-radius: var(--radius-full); background: var(--dandelion-500); }
 .chips-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-1-5); min-height: 28px; }
 .band-filters .btn-link { min-height: 28px; font-size: var(--fs-xs); }
+.result-count { font-size: var(--fs-xs); line-height: 16px; color: var(--foreground-secondary-muted); white-space: nowrap; }
+.result-count strong { font-weight: 600; color: var(--foreground); font-variant-numeric: tabular-nums; }
 
 /* The import notice sits in the header as a full-bleed tinted band */
 .list-head > .notice {
@@ -664,20 +666,13 @@ svg.icon-sm { width: 12px; height: 12px; }
 /* Column dividers: every header and body cell closes with a vertical line */
 .th, .td { border-right: 1px solid var(--foreground-border); }
 .th.scr { background: var(--oat-200); }
-/* Two-level header: a group header spans its sub-columns; ungrouped headers span both rows */
-.thead-row { display: contents; }
-.th-group {
-  justify-content: center; min-height: 36px; padding-right: var(--sp-4);
-  color: var(--foreground); border-bottom: 1px solid var(--foreground-border);
-}
-/* Keeps a wide group's label in view while its columns scroll sideways */
-.th-group .th-name { position: sticky; left: var(--sp-4); right: var(--sp-4); }
-.th-sub { min-height: 40px; }
 .th-pii { margin-left: auto; font-size: 11px; font-weight: 400; color: var(--foreground-muted); }
 .th-label { display: flex; flex-direction: column; align-items: flex-start; gap: var(--sp-0-5); min-width: 0; overflow: hidden; }
 .th-label .tag { padding: 0 var(--sp-1-5); font-size: 11px; }
 .th-text { display: inline-flex; align-items: center; gap: var(--sp-1); max-width: 100%; color: var(--foreground); }
 .th-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Icon headers (status columns): the label is in a tooltip */
+.th-icon { display: inline-flex; color: var(--foreground); }
 
 /* Tooltip — DS "Tooltip" (Content=Simple). Under its anchor with the arrow on top, or above it
    with the arrow below; --arrow-x keeps the arrow on the anchor's center. */
@@ -704,7 +699,7 @@ svg.icon-sm { width: 12px; height: 12px; }
 .th .icon-btn { width: 28px; height: 28px; }
 
 /* Rows stay one line tall: cell content sits side by side and is clipped or truncated */
-.td { display: flex; flex-direction: row; align-items: center; gap: var(--sp-1-5); min-width: 0; overflow: hidden; white-space: nowrap; padding: var(--sp-2) var(--sp-4); }
+.td { --cell-py: var(--sp-2); --cell-px: var(--sp-4); display: flex; flex-direction: row; align-items: center; gap: var(--sp-1-5); min-width: 0; overflow: hidden; white-space: nowrap; padding: var(--cell-py) var(--cell-px); }
 .td > * { flex: none; }
 .sticky {
   position: sticky; left: 0; z-index: 2; background: var(--row-bg);
@@ -713,6 +708,12 @@ svg.icon-sm { width: 12px; height: 12px; }
   border-right: 1px solid var(--foreground-border);
 }
 .th.sticky { padding-right: var(--sp-3); z-index: 4; }
+/* Other pinned columns stick at their offset (set inline) right after Respondent */
+.pinned { position: sticky; z-index: 2; background: var(--row-bg); }
+.th.pinned { z-index: 4; }
+/* Scrolled sideways: a shadow marks where the pinned area ends */
+.tbl.is-scrolled-x .pin-edge { --pin-edge: 4px 0 6px -2px rgb(0 0 0 / 0.12); box-shadow: var(--pin-edge); }
+.th-pin { display: inline-flex; }
 
 /* Column resizing: the handle sits on each header's end edge */
 .resize-handle {
@@ -734,7 +735,7 @@ svg.icon-sm { width: 12px; height: 12px; }
 }
 /* Rows picked with the checkbox, and the row open in the detail panel, get a primary bar on the left */
 .tbody .tr.is-selected .sticky,
-.tbody .tr.is-picked .sticky { box-shadow: inset 3px 0 0 var(--background-primary); }
+.tbody .tr.is-picked .sticky { box-shadow: inset 3px 0 0 var(--background-primary), var(--pin-edge, 0 0 transparent); }
 .td > .who { display: flex; align-items: center; gap: var(--sp-2); min-width: 0; flex: 1; }
 .who-name {
   flex: 0 1 auto; min-width: 0; padding: 0; border: 0; background: none; text-align: left;
@@ -751,6 +752,41 @@ svg.icon-sm { width: 12px; height: 12px; }
 .td > .cell-main, .td > .cell-sub, .td > .cell-na { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .td > .chip-list { flex: 0 1 auto; flex-wrap: nowrap; min-width: 0; overflow: hidden; }
 .td > .chip-list .tag { flex: none; }
+
+/* Editable cells: the control fills the whole cell, padding included */
+.td > .cell-edit, .td > .cell-input {
+  flex: 1 1 auto; align-self: stretch; min-width: 0;
+  margin: calc(var(--cell-py) * -1) calc(var(--cell-px) * -1);
+  padding: 0 var(--cell-px);
+}
+.cell-edit {
+  display: flex; align-items: center; gap: var(--sp-1-5);
+  border: 0; background: none; text-align: left; font: inherit; color: inherit; cursor: text;
+}
+.cell-edit.has-menu { cursor: pointer; }
+.cell-edit:hover { box-shadow: inset 0 0 0 1px var(--foreground-input-muted); }
+.cell-edit:focus-visible, .cell-edit[aria-expanded="true"] { outline: none; box-shadow: inset 0 0 0 2px var(--foreground-ring); }
+.cell-edit > .cell-main, .cell-edit > .cell-dash { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.cell-edit > .cell-sub { flex: none; }
+.cell-edit > .chip-list { flex: 0 1 auto; flex-wrap: nowrap; min-width: 0; overflow: hidden; }
+.cell-edit > .chip-list .tag { flex: none; }
+.cell-edit-trail { display: inline-flex; flex: none; margin-left: auto; color: var(--foreground-secondary-muted); opacity: 0; }
+.cell-edit:hover .cell-edit-trail, .cell-edit:focus-visible .cell-edit-trail, .cell-edit[aria-expanded="true"] .cell-edit-trail { opacity: 1; }
+.cell-input {
+  border: 0; outline: none; border-radius: 0; box-shadow: inset 0 0 0 2px var(--foreground-ring);
+  background: var(--surface-background); font: inherit; color: var(--foreground);
+}
+.cell-menu { min-width: 160px; }
+.cell-menu label.menu-item { cursor: pointer; }
+/* Searchable cell menu: a fixed-height list scrolls between the search field and the clearing option */
+.cell-menu-search { width: 300px; }
+.cell-menu-search > .field { flex: none; margin-bottom: var(--sp-1); }
+.cell-menu-list { position: relative; height: min(320px, 50vh); overflow-y: auto; }
+.menu-empty { margin: 0; padding: var(--sp-3) var(--sp-2-5); font-size: var(--fs-sm); color: var(--foreground-secondary-muted); }
+.menu-check { display: inline-flex; width: 16px; flex: none; color: var(--foreground-accent); }
+@media (pointer: coarse) {
+  .cell-edit-trail { opacity: 1; }
+}
 .fav { color: var(--dandelion-500); }
 
 .group-row { padding: var(--sp-1-5) var(--sp-4); background: var(--oat-50); border-bottom: 1px solid var(--foreground-border); font-size: var(--fs-xs); font-weight: 600; color: var(--foreground-secondary-muted); }
@@ -897,7 +933,7 @@ body.is-resizing { cursor: col-resize; user-select: none; }
   .tools, .band-end { margin-left: 0; }
   .bulk-actions { width: 100%; }
   .sticky { gap: var(--sp-2); padding-left: var(--sp-3); }
-  .td { padding: var(--sp-2) var(--sp-3); }
+  .td { --cell-px: var(--sp-3); }
   .th { padding-left: var(--sp-3); }
   /* Panels become bottom sheets */
   .panel {

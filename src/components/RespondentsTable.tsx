@@ -1,12 +1,12 @@
 import type { ReactTable } from '@tanstack/react-table'
-import { useRef, type CSSProperties, type KeyboardEvent, type UIEvent } from 'react'
+import { useLayoutEffect, useRef, useState, type CSSProperties, type KeyboardEvent, type UIEvent } from 'react'
 import type { Respondent } from '../data/respondents'
 import { viaLabel, type Via } from '../data/respondents'
 import type { RespondentRow, features } from '../table/respondentsTable'
 import { Checkbox } from './Checkbox'
 import { Icon } from './Icon'
 import { Tag } from './Tag'
-import { TruncatedText } from './Tooltip'
+import { IconLabel, TruncatedText } from './Tooltip'
 
 type Table = ReactTable<typeof features, Respondent>
 type Header = ReturnType<Table['getHeaderGroups']>[number]['headers'][number]
@@ -53,34 +53,49 @@ function ResizeHandle({ table, header }: { table: Table; header: Header }) {
   )
 }
 
+/** The Respondent column: always pinned first, with the row checkboxes. */
+const ROW_HEADER_ID = 'respondent'
+
+/** Where a column sticks while scrolling sideways: its offset, and whether it is the last one that sticks. */
+type StickyPos = { left: number; edge: boolean }
+
 /**
- * One header cell, placed on the header grid by its column and row span.
- * Group headers (e.g. "Segments") only show their label; leaf headers keep sorting,
- * the column menu and resizing. An ungrouped column's cell spans every header row.
+ * Sticky positions of the pinned columns: Respondent always, then the other pinned columns
+ * in order while their total width fits in `limit`. Columns that no longer fit (after a resize
+ * or a narrower window) stay pinned but scroll with the table until there is room again.
  */
-function HeaderCell({ table, header, row, col }: { table: Table; header: Header; row: number; col: number }) {
+function stickyPositions(table: Table, limit: number) {
+  const positions = new Map<string, StickyPos>()
+  let left = 0
+  let last: StickyPos | undefined
+  for (const column of table.getStartVisibleLeafColumns()) {
+    if (column.id !== ROW_HEADER_ID && left + column.getSize() > limit) break
+    last = { left, edge: false }
+    positions.set(column.id, last)
+    left += column.getSize()
+  }
+  if (last) last.edge = true
+  return positions
+}
+
+function stickyProps(base: string, sticky: StickyPos | undefined, isRowHeader: boolean) {
+  return {
+    className: [base, isRowHeader ? 'sticky' : sticky && 'pinned', sticky?.edge && 'pin-edge'].filter(Boolean).join(' '),
+    style: sticky && !isRowHeader ? { left: sticky.left } : undefined,
+  }
+}
+
+/** One header cell: sorting, the column menu and resizing. */
+function HeaderCell({ table, header, sticky }: { table: Table; header: Header; sticky?: StickyPos }) {
   const meta = table.options.meta!
   const column = header.column
   const colMeta = column.columnDef.meta!
   const sorted = column.getIsSorted()
-  const cellProps = {
-    role: 'columnheader',
-    style: { gridColumn: `${col} / span ${header.colSpan}`, gridRow: `${row} / span ${header.rowSpan}` },
-    'aria-colspan': header.colSpan > 1 ? header.colSpan : undefined,
-    'aria-rowspan': header.rowSpan > 1 ? header.rowSpan : undefined,
-  }
+  const cellProps = { role: 'columnheader' }
 
-  if (header.subHeaders.length > 0 && !header.isPlaceholder) {
+  if (column.id === ROW_HEADER_ID) {
     return (
-      <div {...cellProps} className="th th-group">
-        <TruncatedText className="th-name"><table.FlexRender header={header} /></TruncatedText>
-      </div>
-    )
-  }
-
-  if (column.getIsPinned() === 'start') {
-    return (
-      <div {...cellProps} className="th sticky" aria-sort={ariaSort(sorted)}>
+      <div {...cellProps} {...stickyProps('th', sticky, true)} aria-sort={ariaSort(sorted)}>
         <Checkbox
           checked={table.getIsAllRowsSelected()}
           indeterminate={table.getIsSomeRowsSelected()}
@@ -104,13 +119,20 @@ function HeaderCell({ table, header, row, col }: { table: Table; header: Header;
   return (
     <div
       {...cellProps}
-      className={['th', colMeta.kind === 'scr' && 'scr', column.parent && 'th-sub'].filter(Boolean).join(' ')}
+      {...stickyProps(colMeta.kind === 'scr' ? 'th scr' : 'th', sticky, false)}
       aria-sort={column.getCanSort() ? ariaSort(sorted) : undefined}
     >
       <span className="th-label">
         {colMeta.screener && <Tag variant="feature">{colMeta.screener}</Tag>}
         <span className="th-text">
-          <TruncatedText className="th-name"><table.FlexRender header={header} /></TruncatedText>
+          {column.getIsPinned() && (
+            <IconLabel className="th-pin" label="Pinned column"><Icon name="pin" small /></IconLabel>
+          )}
+          {colMeta.icon ? (
+            <IconLabel className="th-icon" label={String(column.columnDef.header)}><Icon name={colMeta.icon} /></IconLabel>
+          ) : (
+            <TruncatedText className="th-name"><table.FlexRender header={header} /></TruncatedText>
+          )}
           {sorted && <Icon name={sorted === 'asc' ? 'caretUp' : 'caretDown'} small />}
         </span>
       </span>
@@ -139,23 +161,53 @@ function groupLabel(row: RespondentRow) {
   return value
 }
 
-/** `onScrolledChange` reports whether the table is scrolled away from its top. */
-export function RespondentsTable({ table, onScrolledChange }: { table: Table; onScrolledChange?: (scrolled: boolean) => void }) {
+/**
+ * `pinLimit` is the most width pinned columns may take; `onWidthChange` reports the visible
+ * width of the scroll area. `onScrolledChange` reports whether the table is scrolled away from its top.
+ */
+export function RespondentsTable({
+  table,
+  pinLimit,
+  onWidthChange,
+  onScrolledChange,
+}: {
+  table: Table
+  pinLimit: number
+  onWidthChange?: (width: number) => void
+  onScrolledChange?: (scrolled: boolean) => void
+}) {
   const meta = table.options.meta!
+  const scrollRef = useRef<HTMLDivElement>(null)
   // Hysteresis: "scrolled" once past 24px, back only at the very top, so small moves near
   // the top don't flip it back and forth.
   const scrolled = useRef(false)
+  /** Scrolled sideways: the edge of the pinned area shows a shadow. */
+  const [scrolledX, setScrolledX] = useState(false)
   const onScroll = (e: UIEvent<HTMLDivElement>) => {
+    const x = e.currentTarget.scrollLeft > 0
+    if (x !== scrolledX) setScrolledX(x)
     const top = e.currentTarget.scrollTop
     const next = scrolled.current ? top >= 1 : top > 24
     if (next === scrolled.current) return
     scrolled.current = next
     onScrolledChange?.(next)
   }
+
+  useLayoutEffect(() => {
+    const el = scrollRef.current
+    if (!el || !onWidthChange) return
+    const observer = new ResizeObserver(() => onWidthChange(el.clientWidth))
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [onWidthChange])
+
+  // Headers and cells come in pinning order (pinned columns first), so the grid tracks follow the headers.
+  const headers = table.getHeaderGroups()[0].headers
+  const sticky = stickyPositions(table, pinLimit)
   // Column widths come from TanStack sizing state. A trailing 1fr track fills any
   // leftover width, so the table still spans the card when columns are narrow.
   const tableStyle = {
-    '--grid-cols': `${table.getVisibleLeafColumns().map((c) => `${c.getSize()}px`).join(' ')} minmax(0, 1fr)`,
+    '--grid-cols': `${headers.map((h) => `${h.column.getSize()}px`).join(' ')} minmax(0, 1fr)`,
     minWidth: `${table.getTotalSize()}px`,
   } as CSSProperties
   const rows = table.getRowModel().rows
@@ -163,26 +215,19 @@ export function RespondentsTable({ table, onScrolledChange }: { table: Table; on
   const isResizing = table.state.columnResizing.isResizingColumn !== false
 
   return (
-    <div className="table-scroll" onScroll={onScroll}>
-      <div role="table" className={isResizing ? 'tbl is-resizing' : 'tbl'} aria-labelledby="list-h" style={tableStyle}>
+    <div ref={scrollRef} className="table-scroll" onScroll={onScroll}>
+      <div
+        role="table"
+        className={['tbl', isResizing && 'is-resizing', scrolledX && 'is-scrolled-x'].filter(Boolean).join(' ')}
+        aria-labelledby="list-h"
+        style={tableStyle}
+      >
         <div role="rowgroup" className="thead-group">
-          {/* All header rows share one grid (rows use display: contents), so a group
-              header can span its columns and an ungrouped header can span both rows. */}
-          <div className="tr thead">
-            {table.getHeaderGroups().map((headerGroup, rowIndex) => {
-              let col = 1
-              return (
-                <div key={headerGroup.id} role="row" className="thead-row">
-                  {headerGroup.headers.map((header) => {
-                    const start = col
-                    col += header.colSpan
-                    // rowSpan 0: covered by the taller cell of an ungrouped column above.
-                    if (header.rowSpan === 0) return null
-                    return <HeaderCell key={header.id} table={table} header={header} row={rowIndex + 1} col={start} />
-                  })}
-                </div>
-              )
-            })}
+          {/* Columns are not grouped, so there is a single header row. */}
+          <div role="row" className="tr thead">
+            {headers.map((header) => (
+              <HeaderCell key={header.id} table={table} header={header} sticky={sticky.get(header.column.id)} />
+            ))}
           </div>
         </div>
 
@@ -206,12 +251,12 @@ export function RespondentsTable({ table, onScrolledChange }: { table: Table; on
               >
                 {row.getVisibleCells().map((cell) => {
                   const colMeta = cell.column.columnDef.meta!
-                  const pinned = cell.column.getIsPinned() === 'start'
+                  const isRowHeader = cell.column.id === ROW_HEADER_ID
                   return (
                     <div
                       key={cell.id}
-                      role={pinned ? 'rowheader' : 'cell'}
-                      className={['td', pinned && 'sticky', colMeta.kind === 'scr' && 'scr'].filter(Boolean).join(' ')}
+                      role={isRowHeader ? 'rowheader' : 'cell'}
+                      {...stickyProps(colMeta.kind === 'scr' ? 'td scr' : 'td', sticky.get(cell.column.id), isRowHeader)}
                     >
                       <table.FlexRender cell={cell} />
                     </div>

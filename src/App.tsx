@@ -27,6 +27,7 @@ import { useStoredState } from './hooks/useStoredState'
 import { loadColumnSizing, saveColumnSizing } from './table/columnSizingStorage'
 import {
   DEFAULT_COLUMN_VISIBILITY,
+  PINNED_WIDTH_SHARE,
   columns,
   features,
   respondentFilter,
@@ -34,7 +35,8 @@ import {
 } from './table/respondentsTable'
 
 const DEFAULT_SORTING: SortingState = [{ id: 'respondent', desc: false }]
-const COLUMN_PINNING: ColumnPinningState = { start: ['respondent'], end: [] }
+/** Respondent is always pinned first; people can pin more columns after it from the column menu. */
+const DEFAULT_COLUMN_PINNING: ColumnPinningState = { start: ['respondent'], end: [] }
 const noop = () => {}
 /** Paste-from-spreadsheet import (button and page-wide paste); hidden for now. */
 const PASTE_IMPORT_ENABLED = false
@@ -46,6 +48,11 @@ function isEditableTarget(target: EventTarget | null) {
 
 const isNumber = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v)
 const isBoolean = (v: unknown): v is boolean => typeof v === 'boolean'
+const isIdList = (v: unknown): v is string[] => Array.isArray(v) && v.every((id) => typeof id === 'string')
+const isColumnPinning = (v: unknown): v is ColumnPinningState => {
+  const p = v as ColumnPinningState | null
+  return typeof p === 'object' && p !== null && isIdList(p.start) && isIdList(p.end) && p.start[0] === 'respondent'
+}
 /** Width of the left navigation (org rail, plus the project sidebar when open); matches --nav-w in app.css. */
 const navWidth = (projectNavOpen: boolean) => 72 + (projectNavOpen ? 240 : 0)
 /** Keeps the docked panel within its limits and leaves room for the table beside the left navigation. */
@@ -66,6 +73,10 @@ export function App() {
   const [grouping, setGrouping] = useState<GroupingState>([])
   const [columnVisibility, setColumnVisibility] = useState<ColumnVisibilityState>(DEFAULT_COLUMN_VISIBILITY)
   const [columnSizing, setColumnSizing] = useState<ColumnSizingState>(loadColumnSizing)
+  const [columnPinning, setColumnPinning] = useStoredState('respondent-hub:column-pinning', DEFAULT_COLUMN_PINNING, isColumnPinning)
+  /** Visible width of the table's scroll area; caps how much of it pinned columns may take. */
+  const [tableWidth, setTableWidth] = useState(0)
+  const pinLimit = tableWidth * PINNED_WIDTH_SHARE
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({})
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [drawerOpen, setDrawerOpen] = useState(false)
@@ -109,7 +120,7 @@ export function App() {
       columnSizing,
       rowSelection,
       expanded: true,
-      columnPinning: COLUMN_PINNING,
+      columnPinning,
     },
     onGlobalFilterChange: (updater) => setFilters((prev) => functionalUpdate(updater, prev)),
     onSortingChange: setSorting,
@@ -118,7 +129,7 @@ export function App() {
     onColumnSizingChange: setColumnSizing,
     onRowSelectionChange: setRowSelection,
     onExpandedChange: noop,
-    onColumnPinningChange: noop,
+    onColumnPinningChange: (updater) => setColumnPinning((prev) => functionalUpdate(updater, prev)),
     defaultColumn: { minSize: 90, maxSize: 600 },
     columnResizeMode: 'onChange',
     globalFilterFn: respondentFilter,
@@ -135,6 +146,7 @@ export function App() {
         setPanel(null)
         setMenu((cur) => (cur && cur.type === next.type && cur.id === next.id ? null : next))
       },
+      onUpdate: (id, patch) => setData((prev) => prev.map((r) => (r.id === id ? { ...r, ...patch } : r))),
     },
   })
 
@@ -241,8 +253,20 @@ export function App() {
         groupKey
           ? { label: 'Group by this column', separatorBefore: items.length > 0, onSelect: () => setGrouping([groupKey]) }
           : { label: 'Group by: not available', separatorBefore: items.length > 0, disabled: true },
-        { label: 'Hide column', onSelect: () => column.toggleVisibility(false) },
       )
+      // Respondent can't be pinned or unpinned (it is always pinned).
+      if (column.getCanPin() && column.getIsPinned()) {
+        items.push({ label: 'Unpin column', icon: 'pin', separatorBefore: true, onSelect: () => column.pin(false) })
+      } else if (column.getCanPin()) {
+        // Pinned columns, this one included, must fit in the limit; otherwise say how to make room.
+        const pinnedWidth = table.getStartVisibleLeafColumns().reduce((w, c) => w + c.getSize(), 0)
+        items.push(
+          pinnedWidth + column.getSize() <= pinLimit
+            ? { label: 'Pin column', icon: 'pin', separatorBefore: true, onSelect: () => column.pin('start') }
+            : { label: 'Pin column', icon: 'pin', separatorBefore: true, disabled: true, description: 'Unpin a column to pin this one' },
+        )
+      }
+      items.push({ label: 'Hide column', onSelect: () => column.toggleVisibility(false) })
       menuNode = (
         <FloatingMenu
           anchorKey={`col:${column.id}`}
@@ -346,6 +370,7 @@ export function App() {
           <section className="card list-card" aria-labelledby="list-h">
             <ListHeader
               table={table}
+              total={total}
               filters={filters}
               onFiltersChange={(patch) => setFilters((prev) => ({ ...prev, ...patch }))}
               view={view}
@@ -385,7 +410,7 @@ export function App() {
                 )
               }
             />
-            <RespondentsTable table={table} onScrolledChange={setTableScrolled} />
+            <RespondentsTable table={table} pinLimit={pinLimit} onWidthChange={setTableWidth} onScrolledChange={setTableScrolled} />
           </section>
 
           {selected && (

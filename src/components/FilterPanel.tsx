@@ -274,7 +274,7 @@ interface Props {
   onTreeChange: (tree: FilterTree) => void
   /** All respondents, to preview how many AI-generated filters would match. */
   data: readonly Respondent[]
-  /** Rows the table shows with the current filters (and search). */
+  /** Respondents matching the current filters (and search), scaled to the project like the other counts. */
   resultCount: number
   /** Closes the panel ("Show N respondents"). */
   onDone: () => void
@@ -585,7 +585,7 @@ export function FilterPanel({ tree, onTreeChange, data, resultCount, onDone }: P
           Clear all
         </button>
         <button type="button" className="btn btn-sm btn-primary" onClick={onDone}>
-          Show {resultCount} respondent{resultCount === 1 ? '' : 's'}
+          Show {resultCount.toLocaleString('en-US')} respondent{resultCount === 1 ? '' : 's'}
         </button>
       </div>
       {menu}

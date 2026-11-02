@@ -1,6 +1,6 @@
 import type { ReactTable } from '@tanstack/react-table'
 import { Fragment, useRef, type ReactNode } from 'react'
-import type { GroupBy, Respondent } from '../data/respondents'
+import { projectCount, type GroupBy, type Respondent } from '../data/respondents'
 import {
   EMPTY_TREE,
   GROUP_BY_OPTIONS,
@@ -25,11 +25,15 @@ import { Tag } from './Tag'
 type Table = ReactTable<typeof features, Respondent>
 export type Panel = 'filter' | 'cols' | null
 
+const fmt = (n: number) => n.toLocaleString('en-US')
+
 /** The saved views band is hidden for now to give the table more room. */
 const SHOW_SAVED_VIEWS = false
 
 interface Props {
   table: Table
+  /** Respondents in the whole project; filter results are scaled to it from the loaded sample. */
+  total: number
   filters: Filters
   onFiltersChange: (patch: Partial<Filters>) => void
   view: ViewId
@@ -49,7 +53,7 @@ interface Props {
   metricActive?: boolean
 }
 
-export function ListHeader({ table, filters, onFiltersChange, view, onViewChange, groupBy, onGroupByChange, panel, onPanelChange, pickedCount, onRemovePicked, onPasteClick, notice, metricActive = false }: Props) {
+export function ListHeader({ table, total, filters, onFiltersChange, view, onViewChange, groupBy, onGroupByChange, panel, onPanelChange, pickedCount, onRemovePicked, onPasteClick, notice, metricActive = false }: Props) {
   const filterBtn = useRef<HTMLButtonElement>(null)
   const colsBtn = useRef<HTMLButtonElement>(null)
 
@@ -71,6 +75,7 @@ export function ListHeader({ table, filters, onFiltersChange, view, onViewChange
   const items = activeItems(filters.tree)
   const terms = searchTerms(filters.query)
   const hasFilters = items.length > 0 || terms.length > 0
+  const resultCount = projectCount(table.getFilteredRowModel().rows.length, table.options.data.length, total)
   const dirty = !metricActive && isViewDirty(view, filters)
   const filterCount = items.length + (groupBy !== 'none' ? 1 : 0)
   const togglePanel = (p: Exclude<Panel, null>) => setPanel(panel === p ? null : p)
@@ -100,7 +105,9 @@ export function ListHeader({ table, filters, onFiltersChange, view, onViewChange
         </div>
       )}
 
-      <span className="sr-only" role="status">{pickedCount > 0 ? `${pickedCount} selected` : ''}</span>
+      <span className="sr-only" role="status">
+        {pickedCount > 0 ? `${pickedCount} selected` : hasFilters ? `${fmt(resultCount)} of ${fmt(total)} respondents match` : ''}
+      </span>
       <div className="head-band band-filters">
         {pickedCount > 0 ? (
           <BulkActions count={pickedCount} onClear={() => table.resetRowSelection(true)} onRemove={onRemovePicked} />
@@ -172,6 +179,12 @@ export function ListHeader({ table, filters, onFiltersChange, view, onViewChange
 
         {(hasFilters || dirty) && (
           <div className="band-end">
+            {/* The result of the filters, next to them; announced by the status region above */}
+            {hasFilters && (
+              <span className="result-count" aria-hidden="true">
+                <strong>{fmt(resultCount)}</strong> of {fmt(total)} respondents
+              </span>
+            )}
             {dirty && (
               <span className="unsaved">
                 <span className="dot" aria-hidden="true" />
@@ -229,7 +242,7 @@ export function ListHeader({ table, filters, onFiltersChange, view, onViewChange
                   tree={filters.tree}
                   onTreeChange={(tree) => onFiltersChange({ tree })}
                   data={table.options.data}
-                  resultCount={table.getFilteredRowModel().rows.length}
+                  resultCount={resultCount}
                   onDone={() => {
                     setPanel(null)
                     filterBtn.current?.focus()
