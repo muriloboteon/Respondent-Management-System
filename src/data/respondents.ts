@@ -187,8 +187,13 @@ export function enrichRespondent(r: RawRespondent, i: number): Respondent {
     prior: PRIOR_INTERVIEWS[r.id] ? 'Yes' : 'No',
     fav: r.src === 'rio',
     avatarClass: r.src === 'rio' ? 'av-panel' : `av-${i % 5}`,
-    initials: name.split(' ').map((w) => w.charAt(0)).join('').replace('.', '').slice(0, 2).toUpperCase(),
+    initials: initialsFor(name),
   }
+}
+
+/** The avatar's letters: the first letters of the first two words. */
+export function initialsFor(name: string) {
+  return name.split(' ').map((w) => w.charAt(0)).join('').replace('.', '').slice(0, 2).toUpperCase()
 }
 
 export interface SelfCapture {
@@ -311,6 +316,3 @@ export const SORT_ORDER: Record<string, number> = {
   'Not sent': 3, 'Not signed': 3,
   No: 4, 'Not assigned': 5, 'Not completed': 5, '—': 6,
 }
-
-/** 'source', or a single-value segment (multi-value segments can't group rows). */
-export type GroupBy = 'none' | 'source' | SegmentKey

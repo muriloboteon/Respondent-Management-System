@@ -1,10 +1,10 @@
 import {
   functionalUpdate,
   useTable,
+  type ColumnOrderState,
   type ColumnPinningState,
   type ColumnSizingState,
   type ColumnVisibilityState,
-  type GroupingState,
   type RowSelectionState,
   type SortingState,
 } from '@tanstack/react-table'
@@ -21,14 +21,14 @@ import { RemoveConfirm } from './components/RemoveConfirm'
 import { SelfCaptureHistoryDialog } from './components/SelfCaptureHistoryDialog'
 import { TechCheckDialog } from './components/TechCheckDialog'
 import { ASSIGN_ITEMS, SEGMENT_ITEMS } from './components/respondentActions'
-import { TOTAL_RESPONDENTS, respondents, type GroupBy, type Respondent } from './data/respondents'
+import { TOTAL_RESPONDENTS, respondents, type Respondent } from './data/respondents'
 import { EMPTY_FILTERS, activeMetric, matchesFilters, metricTree, viewTree, type Filters, type ViewId } from './filters/filters'
 import { MetricStrip } from './components/MetricStrip'
 import { useMediaQuery } from './hooks/useMediaQuery'
 import { useStoredState } from './hooks/useStoredState'
+import { moveColumn, shownNeighbour } from './table/columnOrder'
 import { loadColumnSizing, saveColumnSizing } from './table/columnSizingStorage'
 import {
-  DEFAULT_COLUMN_VISIBILITY,
   PINNED_WIDTH_SHARE,
   columns,
   features,
@@ -40,7 +40,6 @@ import {
 const DEFAULT_SORTING: SortingState = [{ id: 'respondent', desc: false }]
 /** Respondent is always pinned first; people can pin more columns after it from the column menu. */
 const DEFAULT_COLUMN_PINNING: ColumnPinningState = { start: ['respondent'], end: [] }
-const noop = () => {}
 /** Paste-from-spreadsheet import (button and page-wide paste); hidden for now. */
 const PASTE_IMPORT_ENABLED = false
 
@@ -73,10 +72,11 @@ export function App() {
   /** The table is scrolled away from its top, so the metric strip condenses. */
   const [tableScrolled, setTableScrolled] = useState(false)
   const [sorting, setSorting] = useState<SortingState>(DEFAULT_SORTING)
-  const [grouping, setGrouping] = useState<GroupingState>([])
-  const [columnVisibility, setColumnVisibility] = useState<ColumnVisibilityState>(DEFAULT_COLUMN_VISIBILITY)
+  const [columnVisibility, setColumnVisibility] = useState<ColumnVisibilityState>({})
   const [columnSizing, setColumnSizing] = useState<ColumnSizingState>(loadColumnSizing)
   const [columnPinning, setColumnPinning] = useStoredState('respondent-hub:column-pinning', DEFAULT_COLUMN_PINNING, isColumnPinning)
+  /** Empty keeps the definition order; ids no longer in the table are skipped and new columns go last. */
+  const [columnOrder, setColumnOrder] = useStoredState<ColumnOrderState>('respondent-hub:column-order', [], isIdList)
   /** Visible width of the table's scroll area; caps how much of it pinned columns may take. */
   const [tableWidth, setTableWidth] = useState(0)
   const pinLimit = tableWidth * PINNED_WIDTH_SHARE
@@ -89,6 +89,8 @@ export function App() {
   const [projectNavOpen, setProjectNavOpen] = useStoredState('respondent-hub:project-nav-open', true, isBoolean)
   const [panel, setPanel] = useState<Panel>(null)
   const [menu, setMenu] = useState<MenuState>(null)
+  /** A row whose name should turn into a text field ("Rename" in the row menu). */
+  const [renamingId, setRenamingId] = useState<string | null>(null)
   /** The "more actions" menu next to Upload Respondents. */
   const [pageMenuOpen, setPageMenuOpen] = useState(false)
   /** Respondents waiting on the remove confirmation. */
@@ -121,32 +123,31 @@ export function App() {
     state: {
       globalFilter: filters,
       sorting,
-      grouping,
       columnVisibility,
       columnSizing,
       rowSelection,
-      expanded: true,
       columnPinning,
+      columnOrder,
     },
     onGlobalFilterChange: (updater) => setFilters((prev) => functionalUpdate(updater, prev)),
     onSortingChange: setSorting,
-    onGroupingChange: setGrouping,
     onColumnVisibilityChange: setColumnVisibility,
     onColumnSizingChange: setColumnSizing,
     onRowSelectionChange: setRowSelection,
-    onExpandedChange: noop,
     onColumnPinningChange: (updater) => setColumnPinning((prev) => functionalUpdate(updater, prev)),
+    onColumnOrderChange: (updater) => setColumnOrder((prev) => functionalUpdate(updater, prev)),
     defaultColumn: { minSize: 90, maxSize: 600 },
     columnResizeMode: 'onChange',
     globalFilterFn: respondentFilter,
     getColumnCanGlobalFilter: (column) => column.id === 'respondent',
-    groupedColumnMode: false,
     enableMultiSort: false,
     enableSortingRemoval: false,
     meta: {
       selectedId,
       newIds,
       menu,
+      renamingId,
+      onRenameStarted: () => setRenamingId(null),
       onOpen: openDetail,
       onToggleMenu: (next) => {
         setPanel(null)
@@ -225,8 +226,8 @@ export function App() {
   const docked = !asDialog && selected !== null && !detailExpanded
   const panelWidth = clampDetailWidth(detailWidth, projectNavOpen)
 
-  // Previous / next follow the table's current order (sorting, filters, grouping).
-  const order = table.getRowModel().rows.filter((row) => !row.getIsGrouped()).map((row) => row.id)
+  // Previous / next follow the table's current order (sorting and filters).
+  const order = table.getRowModel().rows.map((row) => row.id)
   const at = selectedId ? order.indexOf(selectedId) : -1
   const prevId = at > 0 ? order[at - 1] : null
   const nextId = at >= 0 && at < order.length - 1 ? order[at + 1] : null
@@ -242,7 +243,6 @@ export function App() {
     return () => document.removeEventListener('keydown', onKey)
   }, [overlayOpen])
 
-  const groupBy = (grouping[0] as GroupBy | undefined) ?? 'none'
   const pickedCount = data.filter((r) => rowSelection[r.id]).length
   const total = TOTAL_RESPONDENTS + data.length - respondents.length
   const metric = activeMetric(view, filters)
@@ -251,9 +251,8 @@ export function App() {
   if (menu?.type === 'col') {
     const column = table.getColumn(menu.id)
     if (column) {
-      const groupKey = column.columnDef.meta!.groupKey
       const header = String(column.columnDef.header)
-      // The MUI X Data Grid column menu: sorting, pinning, grouping, then columns, each group divided.
+      // The MUI X Data Grid column menu: sorting, pinning, moving, then columns, each group divided.
       // Items that don't apply to the column are left out rather than disabled.
       const groups: MenuItem[][] = []
       if (column.getCanSort()) {
@@ -276,11 +275,13 @@ export function App() {
             : { label: 'Pin to left', icon: 'pin', disabled: true, description: 'Unpin a column to pin this one' },
         ])
       }
-      if (groupKey) {
+      // Moves past the next shown column; pinned columns move only among the pinned ones.
+      const left = shownNeighbour(table, column, -1)
+      const right = shownNeighbour(table, column, 1)
+      if (left || right) {
         groups.push([
-          grouping[0] === groupKey
-            ? { label: `Stop grouping by ${header}`, icon: 'rows', onSelect: () => setGrouping([]) }
-            : { label: `Group by ${header}`, icon: 'rows', onSelect: () => setGrouping([groupKey]) },
+          ...(left ? [{ label: 'Move left', icon: 'arrowLeft', onSelect: () => moveColumn(table, column.id, left.id, 'before') } as const] : []),
+          ...(right ? [{ label: 'Move right', icon: 'arrowRight', onSelect: () => moveColumn(table, column.id, right.id, 'after') } as const] : []),
         ])
       }
       groups.push([
@@ -315,6 +316,7 @@ export function App() {
           onClose={() => setMenu(null)}
           items={[
             { label: 'Open details', onSelect: () => openDetail(r.id) },
+            { label: 'Rename', icon: 'pencil', onSelect: () => setRenamingId(r.id) },
             ...ASSIGN_ITEMS.map((item, i) => ({ ...item, separatorBefore: i === 0, heading: i === 0 ? 'Assign' : undefined })),
             ...SEGMENT_ITEMS.map((item, i) => ({ ...item, separatorBefore: i === 0, heading: i === 0 ? 'Segment' : undefined })),
             { label: 'Export to CSV', icon: 'download', separatorBefore: true },
@@ -403,8 +405,6 @@ export function App() {
                 setView(v)
                 setFilters({ query: '', tree: viewTree(v) })
               }}
-              groupBy={groupBy}
-              onGroupByChange={(g) => setGrouping(g === 'none' ? [] : [g])}
               panel={panel}
               onPanelChange={(p) => {
                 setMenu(null)

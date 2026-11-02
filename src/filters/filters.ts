@@ -1,4 +1,4 @@
-import { SEGMENTS, type GroupBy, type Respondent } from '../data/respondents'
+import type { Respondent } from '../data/respondents'
 import {
   NO_VALUE_OPS,
   OPERATORS,
@@ -279,11 +279,3 @@ export function activeMetric(view: ViewId, f: Filters): MetricId | null {
   const current = signature(f.tree)
   return METRICS.find((m) => signature(m.tree) === current)?.id ?? null
 }
-
-/* ---------- Group by (lives in the filter panel footer) ---------- */
-
-export const GROUP_BY_OPTIONS: Array<[GroupBy, string]> = [
-  ['none', 'No grouping'],
-  ...SEGMENTS.filter((s) => !s.multi).map((s): [GroupBy, string] => [s.key, s.label]),
-  ['source', 'Source'],
-]

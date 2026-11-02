@@ -1,9 +1,8 @@
 import type { ReactTable } from '@tanstack/react-table'
 import { Fragment, useRef, type ReactNode } from 'react'
-import { projectCount, type GroupBy, type Respondent } from '../data/respondents'
+import { projectCount, type Respondent } from '../data/respondents'
 import {
   EMPTY_TREE,
-  GROUP_BY_OPTIONS,
   VIEWS,
   activeItems,
   isViewDirty,
@@ -15,8 +14,8 @@ import {
   type ViewId,
 } from '../filters/filters'
 import { useDismiss } from '../hooks/useDismiss'
-import { COLUMN_PANEL_GROUPS, type features } from '../table/respondentsTable'
-import { Checkbox } from './Checkbox'
+import type { features } from '../table/respondentsTable'
+import { ColumnsPanel } from './ColumnsPanel'
 import { FilterPanel } from './FilterPanel'
 import { BulkActions } from './BulkActions'
 import { Icon } from './Icon'
@@ -37,8 +36,6 @@ interface Props {
   onFiltersChange: (patch: Partial<Filters>) => void
   view: ViewId
   onViewChange: (view: ViewId) => void
-  groupBy: GroupBy
-  onGroupByChange: (groupBy: GroupBy) => void
   panel: Panel
   onPanelChange: (panel: Panel) => void
   pickedCount: number
@@ -52,7 +49,7 @@ interface Props {
   metricActive?: boolean
 }
 
-export function ListHeader({ table, total, filters, onFiltersChange, view, onViewChange, groupBy, onGroupByChange, panel, onPanelChange, pickedCount, onRemovePicked, onPasteClick, notice, metricActive = false }: Props) {
+export function ListHeader({ table, total, filters, onFiltersChange, view, onViewChange, panel, onPanelChange, pickedCount, onRemovePicked, onPasteClick, notice, metricActive = false }: Props) {
   const filterBtn = useRef<HTMLButtonElement>(null)
   const colsBtn = useRef<HTMLButtonElement>(null)
 
@@ -76,7 +73,7 @@ export function ListHeader({ table, total, filters, onFiltersChange, view, onVie
   const hasFilters = items.length > 0 || terms.length > 0
   const resultCount = projectCount(table.getFilteredRowModel().rows.length, table.options.data.length, total)
   const dirty = !metricActive && isViewDirty(view, filters)
-  const filterCount = items.length + (groupBy !== 'none' ? 1 : 0)
+  const filterCount = items.length
   const togglePanel = (p: Exclude<Panel, null>) => setPanel(panel === p ? null : p)
   // Removing a chip unmounts it, so focus moves to the Filters button.
   const focusFilters = () => filterBtn.current?.focus()
@@ -84,7 +81,6 @@ export function ListHeader({ table, total, filters, onFiltersChange, view, onVie
     onFiltersChange({ tree: { ...filters.tree, items: filters.tree.items.filter((item) => item.id !== id) } })
     focusFilters()
   }
-  const hideableColumns = table.getAllLeafColumns().filter((c) => c.getCanHide() && c.columnDef.meta!.kind !== 'internal')
 
   return (
     // Two bands split by full-width dividers: saved views (hidden for now), and the filters band (applied
@@ -265,31 +261,7 @@ export function ListHeader({ table, total, filters, onFiltersChange, view, onVie
             >
               <Icon name="columns" />
             </button>
-            {panel === 'cols' && (
-              <div className="panel" role="dialog" aria-label="Columns" id="panel-cols">
-                <span className="sheet-handle" aria-hidden="true" />
-                <p className="panel-title">Show columns</p>
-                {COLUMN_PANEL_GROUPS.map((group) => (
-                  <fieldset key={group.name}>
-                    <legend>{group.name}</legend>
-                    {hideableColumns
-                      .filter((c) => group.match(c.columnDef.meta!))
-                      .map((c) => (
-                        <label key={c.id} className="check-row">
-                          <Checkbox checked={c.getIsVisible()} onChange={c.getToggleVisibilityHandler()} />
-                          <span>{String(c.columnDef.header)}</span>
-                        </label>
-                      ))}
-                  </fieldset>
-                ))}
-                <label className="form-label panel-section">
-                  Group rows by
-                  <select className="select select-sm" value={groupBy} onChange={(e) => onGroupByChange(e.target.value as GroupBy)}>
-                    {GROUP_BY_OPTIONS.map(([value, text]) => <option key={value} value={value}>{text}</option>)}
-                  </select>
-                </label>
-              </div>
-            )}
+            {panel === 'cols' && <ColumnsPanel table={table} />}
           </div>
 
           {onPasteClick && (

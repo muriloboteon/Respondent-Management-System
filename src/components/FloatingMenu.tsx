@@ -23,7 +23,7 @@ export function anchorFor(key: string) {
 
 /**
  * Keeps a fixed-position layer under (or, when there is no room, above) the element
- * marked `data-menu-anchor={anchorKey}`, following scrolls and resizes.
+ * marked `data-menu-anchor={anchorKey}`, following scrolls, resizes and changes to its own size.
  */
 export function useAnchoredPosition(
   ref: RefObject<HTMLElement | null>,
@@ -50,9 +50,13 @@ export function useAnchoredPosition(
       layer.style.top = `${Math.max(8, top)}px`
     }
     place()
+    // Also when the layer's own size changes, e.g. a hint whose message appears
+    const observer = new ResizeObserver(place)
+    observer.observe(layer)
     window.addEventListener('resize', place)
     window.addEventListener('scroll', place, true)
     return () => {
+      observer.disconnect()
       window.removeEventListener('resize', place)
       window.removeEventListener('scroll', place, true)
     }

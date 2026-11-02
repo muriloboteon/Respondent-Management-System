@@ -1,9 +1,9 @@
 import type { ReactTable } from '@tanstack/react-table'
-import { useLayoutEffect, useRef, useState, type CSSProperties, type KeyboardEvent, type MouseEvent, type UIEvent } from 'react'
+import { useLayoutEffect, useRef, useState, type CSSProperties, type FocusEvent, type KeyboardEvent, type MouseEvent, type UIEvent } from 'react'
 import type { Respondent } from '../data/respondents'
-import { SEGMENTS } from '../data/respondents'
-import type { RespondentRow, features } from '../table/respondentsTable'
+import type { features } from '../table/respondentsTable'
 import { Checkbox } from './Checkbox'
+import { CELL_PEEK, CELL_START, cellFrom, cellMove, startsEdit } from './gridCells'
 import { Icon } from './Icon'
 import { IconLabel, TruncatedText } from './Tooltip'
 
@@ -18,12 +18,33 @@ function ariaSort(sorted: false | 'asc' | 'desc'): 'ascending' | 'descending' | 
 }
 
 /**
+ * True from a press on a resize handle until just after the button is released. A drag that
+ * ends over the same header fires a click on the header (the closest element holding both the
+ * press and the release), and that click mustn't sort.
+ */
+let resizePress = false
+function startResizePress() {
+  resizePress = true
+  const end = () => {
+    window.removeEventListener('mouseup', end, true)
+    window.removeEventListener('touchend', end, true)
+    window.removeEventListener('touchcancel', end, true)
+    // The click comes right after the release, before this timer runs.
+    setTimeout(() => (resizePress = false))
+  }
+  window.addEventListener('mouseup', end, true)
+  window.addEventListener('touchend', end, true)
+  window.addEventListener('touchcancel', end, true)
+}
+
+/**
  * Drag handle on a header's end edge (mouse and touch via TanStack's resize handler).
  * Also a focusable window splitter: arrow keys resize by 10px (Shift: 50px), double-click resets.
  */
 function ResizeHandle({ table, header }: { table: Table; header: Header }) {
   const column = header.column
   if (!column.getCanResize()) return null
+  const resizeHandler = header.getResizeHandler()
   const { minSize = 0, maxSize = Infinity } = column.columnDef
   const size = column.getSize()
   const label = String(column.columnDef.header)
@@ -47,8 +68,14 @@ function ResizeHandle({ table, header }: { table: Table; header: Header }) {
       tabIndex={0}
       className={column.getIsResizing() ? 'resize-handle is-resizing' : 'resize-handle'}
       title="Drag to resize · double-click to reset"
-      onMouseDown={header.getResizeHandler()}
-      onTouchStart={header.getResizeHandler()}
+      onMouseDown={(e) => {
+        startResizePress()
+        resizeHandler(e)
+      }}
+      onTouchStart={(e) => {
+        startResizePress()
+        resizeHandler(e)
+      }}
       onDoubleClick={() => column.resetSize()}
       onKeyDown={onKeyDown}
     />
@@ -113,12 +140,19 @@ function HeaderCell({ table, header, sticky }: { table: Table; header: Header; s
     'aria-sort': canSort ? ariaSort(sorted) : undefined,
     ...stickyProps(base, sticky, isRowHeader),
     onClick: canSort
-      ? (e: MouseEvent) => {
-          // The select-all checkbox, the menu button and the resize handle do their own thing.
-          if ((e.target as Element).closest('.checkbox, .icon-btn, .resize-handle')) return
+      ? (e: MouseEvent<HTMLElement>) => {
+          // The select-all checkbox, the menu button and the resize handle do their own thing,
+          // and the end of a resize drag isn't a click on the header.
+          if (resizePress || (e.target as Element).closest('.checkbox, .icon-btn, .resize-handle')) return
+          // The third click removes the sort. The hover preview (the next direction, ascending)
+          // stays hidden until the pointer or focus leaves, or the arrow would look like a sort.
+          if (sorted === 'desc') e.currentTarget.dataset.unsorted = ''
+          else delete e.currentTarget.dataset.unsorted
           table.setSorting(sorted === 'desc' ? [] : [{ id: column.id, desc: sorted === 'asc' }])
         }
       : undefined,
+    onMouseLeave: canSort ? (e: MouseEvent<HTMLElement>) => delete e.currentTarget.dataset.unsorted : undefined,
+    onBlur: canSort ? (e: FocusEvent<HTMLElement>) => delete e.currentTarget.dataset.unsorted : undefined,
   }
 
   if (isRowHeader) {
@@ -183,11 +217,48 @@ function HeaderCell({ table, header, sticky }: { table: Table; header: Header; s
   )
 }
 
-function groupLabel(row: RespondentRow) {
-  const value = String(row.groupingValue)
-  const segment = SEGMENTS.find((s) => s.key === row.groupingColumnId)
-  if (segment) return `${segment.label}: ${row.groupingValue === undefined ? 'not set' : value}`
-  return value
+/**
+ * Keys on a body cell, like the MUI X Data Grid: the arrows, Home and End move between cells;
+ * Enter, F2 or typing starts editing an editable cell. Space shows every tag of a cell whose tags
+ * don't all fit. On other cells Enter and Space press the cell's button; in the Respondent cell Enter opens the respondent, Space picks the row and
+ * Shift+F10 (or the menu key) opens the row actions.
+ */
+function onCellKeyDown(e: KeyboardEvent<HTMLDivElement>) {
+  const target = e.target as HTMLElement
+  const td = target.closest<HTMLElement>('.td[data-row]')
+  // Text fields and the cell menus (portals, outside the cell) handle their own keys.
+  if (!td || target.matches('input:not([type="checkbox"])')) return
+  const onCell = target === td
+  const editor = td.querySelector<HTMLElement>(':scope > .cell-edit')
+  if (editor && onCell && startsEdit(e)) {
+    e.preventDefault()
+    editor.dispatchEvent(new CustomEvent(CELL_START, { detail: e.key }))
+    return
+  }
+  const move = cellMove(e)
+  if (move) {
+    e.preventDefault()
+    cellFrom(td, move)?.focus()
+    return
+  }
+  // A button inside the cell has focus after a click: Enter and Space work on it as usual.
+  if (!onCell) return
+  const press = (selector: string) => {
+    e.preventDefault()
+    td.querySelector<HTMLElement>(selector)?.click()
+  }
+  const tags = td.querySelector<HTMLElement>('.chip-list[data-overflow]')
+  if (td.classList.contains('sticky')) {
+    if (e.key === 'Enter') press('.who-name')
+    else if (e.key === ' ') press('.checkbox input')
+    else if (e.key === 'ContextMenu' || (e.shiftKey && e.key === 'F10')) press('.row-menu')
+  } else if (e.key === ' ' && tags) {
+    // Tags that don't all fit: Space shows every one, like the MUI X Data Grid's multi-select cells.
+    e.preventDefault()
+    tags.dispatchEvent(new CustomEvent(CELL_PEEK))
+  } else if (e.key === 'Enter' || e.key === ' ') {
+    press('button')
+  }
 }
 
 /**
@@ -240,13 +311,29 @@ export function RespondentsTable({
     minWidth: `${table.getTotalSize()}px`,
   } as CSSProperties
   const rows = table.getRowModel().rows
-  const leafRows = table.getFilteredRowModel().rows
   const isResizing = table.state.columnResizing.isResizingColumn !== false
 
+  // The grid is one Tab stop: the last focused cell, or the first cell when that one is gone.
+  const [active, setActive] = useState<{ row: string; col: string } | null>(null)
+  const activeShown =
+    active && rows.some((row) => row.id === active.row) && headers.some((h) => h.column.id === active.col)
+  const tabStop = activeShown ? active : rows[0] && { row: rows[0].id, col: headers[0].column.id }
+  const onCellFocus = (e: FocusEvent<HTMLDivElement>) => {
+    const td = (e.target as Element).closest<HTMLElement>('.td[data-row]')
+    if (!td) return
+    const { row, col } = td.dataset as { row: string; col: string }
+    if (row !== active?.row || col !== active?.col) setActive({ row, col })
+  }
+  // Cells reached with the keyboard scroll clear of the pinned columns
+  const pinnedWidth = headers.reduce((w, h) => {
+    const pos = sticky.get(h.column.id)
+    return pos ? Math.max(w, pos.left + h.column.getSize()) : w
+  }, 0)
+
   return (
-    <div ref={scrollRef} className="table-scroll" onScroll={onScroll}>
+    <div ref={scrollRef} className="table-scroll" style={{ scrollPaddingLeft: pinnedWidth }} onScroll={onScroll}>
       <div
-        role="table"
+        role="grid"
         className={['tbl', isResizing && 'is-resizing', scrolledX && 'is-scrolled-x'].filter(Boolean).join(' ')}
         aria-labelledby="list-h"
         style={tableStyle}
@@ -260,39 +347,36 @@ export function RespondentsTable({
           </div>
         </div>
 
-        <div role="rowgroup" className="tbody">
-          {leafRows.length === 0 && (
+        <div role="rowgroup" className="tbody" onFocus={onCellFocus} onKeyDown={onCellKeyDown}>
+          {rows.length === 0 && (
             <div className="empty" role="row">
-              <span role="cell">No sample respondents match these filters.</span>
+              <span role="gridcell">No sample respondents match these filters.</span>
             </div>
           )}
-          {rows.map((row) =>
-            row.getIsGrouped() ? (
-              <div key={row.id} role="row" className="group-row">
-                <span role="cell">{groupLabel(row)} · {row.subRows.length} shown</span>
-              </div>
-            ) : (
-              <div
-                key={row.id}
-                role="row"
-                className={['tr', row.id === meta.selectedId && 'is-selected', row.getIsSelected() && 'is-picked'].filter(Boolean).join(' ')}
-                aria-selected={row.id === meta.selectedId || undefined}
-              >
-                {row.getVisibleCells().map((cell) => {
-                  const isRowHeader = cell.column.id === ROW_HEADER_ID
-                  return (
-                    <div
-                      key={cell.id}
-                      role={isRowHeader ? 'rowheader' : 'cell'}
-                      {...stickyProps('td', sticky.get(cell.column.id), isRowHeader)}
-                    >
-                      <table.FlexRender cell={cell} />
-                    </div>
-                  )
-                })}
-              </div>
-            ),
-          )}
+          {rows.map((row) => (
+            <div
+              key={row.id}
+              role="row"
+              className={['tr', row.id === meta.selectedId && 'is-selected', row.getIsSelected() && 'is-picked'].filter(Boolean).join(' ')}
+              aria-selected={row.id === meta.selectedId || undefined}
+            >
+              {row.getVisibleCells().map((cell) => {
+                const isRowHeader = cell.column.id === ROW_HEADER_ID
+                return (
+                  <div
+                    key={cell.id}
+                    role={isRowHeader ? 'rowheader' : 'gridcell'}
+                    data-row={row.id}
+                    data-col={cell.column.id}
+                    tabIndex={tabStop && tabStop.row === row.id && tabStop.col === cell.column.id ? 0 : -1}
+                    {...stickyProps('td', sticky.get(cell.column.id), isRowHeader)}
+                  >
+                    <table.FlexRender cell={cell} />
+                  </div>
+                )
+              })}
+            </div>
+          ))}
         </div>
       </div>
     </div>

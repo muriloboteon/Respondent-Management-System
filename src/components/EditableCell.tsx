@@ -1,18 +1,201 @@
-import { useLayoutEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
+import {
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type ChangeEvent,
+  type FocusEvent,
+  type KeyboardEvent,
+  type ReactNode,
+  type RefObject,
+} from 'react'
 import { createPortal } from 'react-dom'
 import { useDismiss } from '../hooks/useDismiss'
 import { Checkbox } from './Checkbox'
 import { anchorFor, useAnchoredPosition } from './FloatingMenu'
+import { CELL_START, focusAfterEdit, type EditEnd } from './gridCells'
 import { Icon } from './Icon'
 
+/** Limits on a text cell's value (trimmed, as it is saved). */
+export interface TextRule {
+  /** Field name for the messages, e.g. "Email". */
+  label: string
+  max: number
+  required?: boolean
+  /** Format check on a non-empty value: the error message, or null when it's valid. */
+  check?: (value: string) => string | null
+}
+
+/** The counter shows from this share of the limit on. */
+const COUNTER_FROM = 0.8
+
 /**
- * Inline text editing: the cell's usual content is a button that fills the cell.
- * Clicking it swaps in an input. Enter or leaving the field saves, Escape cancels.
+ * Over the limit shows while typing; an empty or badly formatted value only once saving was
+ * tried, so the message doesn't appear before the user is done.
+ */
+function ruleError(rule: TextRule, value: string, tried: boolean) {
+  if (value.length > rule.max) return `${rule.label} can't be longer than ${rule.max} characters.`
+  if (!tried) return null
+  if (!value) return rule.required ? `${rule.label} can't be empty.` : null
+  return rule.check?.(value) ?? null
+}
+
+/**
+ * Draft state for inline text editing. `start` swaps in the input, with the current value
+ * selected or with `initial` (a typed key, or '' to clear) and the caret after it. Enter, Tab
+ * or leaving the field saves, Escape cancels. `onEnd` runs after Enter, Tab or Escape, to move
+ * focus. `inputProps` is null while not editing.
+ *
+ * With a `rule`, a changed value that breaks it isn't saved: Enter and Tab keep the edit open
+ * with the error shown, so it can be fixed; Escape, or leaving the field (a click on another
+ * cell, which gets selected), drops the change, like AG Grid's default "revert" mode. `hint`
+ * (render it next to the input) shows the counter near the limit and the error, under the cell.
+ */
+export function useInlineEdit(
+  value: string,
+  onCommit: (next: string) => void,
+  onEnd: (how: EditEnd) => void,
+  rule?: TextRule,
+) {
+  const [draft, setDraft] = useState<string | null>(null)
+  const [tried, setTried] = useState(false)
+  const editing = useRef(false)
+  const selectAll = useRef(true)
+  const focused = useRef(false)
+  const id = useId()
+
+  const start = (initial?: string) => {
+    editing.current = true
+    selectAll.current = initial === undefined
+    focused.current = false
+    setTried(false)
+    setDraft(initial ?? value)
+  }
+  const next = (draft ?? '').trim()
+  const changed = next !== value
+  // A value that was already there (e.g. imported) isn't flagged until it's changed.
+  const error = rule && changed ? ruleError(rule, next, tried) : null
+
+  // Guarded by a ref: the input's blur can fire after Enter or Escape already finished.
+  // `how` is missing when the field lost focus.
+  const finish = (save: boolean, how?: EditEnd) => {
+    if (!editing.current) return
+    const invalid = save && !!rule && changed && !!ruleError(rule, next, true)
+    if (invalid && how) {
+      setTried(true)
+      return
+    }
+    editing.current = false
+    if (save && changed && !invalid) onCommit(next)
+    setDraft(null)
+    if (how) requestAnimationFrame(() => onEnd(how))
+  }
+
+  // As a layer, Escape cancels the edit without also closing a panel or drawer behind it.
+  useDismiss(draft !== null, '.cell-input', (reason) => {
+    if (reason === 'escape') finish(false, 'escape')
+  })
+
+  const showCount = rule && next.length >= rule.max * COUNTER_FROM
+  const inputProps =
+    draft === null
+      ? null
+      : {
+          className: 'cell-input',
+          value: draft,
+          autoFocus: true,
+          'data-menu-anchor': `edit:${id}`,
+          'aria-invalid': error ? true : undefined,
+          'aria-describedby': rule ? `${id}-hint` : undefined,
+          onFocus: (e: FocusEvent<HTMLInputElement>) => {
+            // Coming back to a field that kept an error leaves the caret where the click put it.
+            if (focused.current) return
+            focused.current = true
+            const input = e.currentTarget
+            if (selectAll.current) return input.select()
+            // Email fields don't support moving the caret
+            try {
+              input.setSelectionRange(input.value.length, input.value.length)
+            } catch {}
+          },
+          onChange: (e: ChangeEvent<HTMLInputElement>) => setDraft(e.target.value),
+          onBlur: () => {
+            // Switching to another window keeps an invalid edit open instead of dropping it
+            if (!document.hasFocus() && rule && changed && ruleError(rule, next, true)) return
+            finish(true)
+          },
+          onKeyDown: (e: KeyboardEvent<HTMLInputElement>) => {
+            if (e.key === 'Enter' || e.key === 'Tab') {
+              e.preventDefault()
+              finish(true, e.key === 'Enter' ? 'enter' : e.shiftKey ? 'shiftTab' : 'tab')
+            }
+          },
+        }
+  const hint =
+    draft !== null && rule ? (
+      <EditHint
+        anchorKey={`edit:${id}`}
+        id={`${id}-hint`}
+        error={error}
+        count={showCount ? `${next.length}/${rule.max}` : null}
+        over={next.length > rule.max}
+      />
+    ) : null
+  return { start, inputProps, hint }
+}
+
+/**
+ * Under the field being edited: the error, and the character count near the limit. The error
+ * sits in a live region that is there from the start, so screen readers announce it when it
+ * appears; the count isn't announced on each key, but is read with the field.
+ */
+function EditHint({ anchorKey, id, error, count, over }: { anchorKey: string; id: string; error: string | null; count: string | null; over: boolean }) {
+  const ref = useRef<HTMLDivElement>(null)
+  useAnchoredPosition(ref, anchorKey, 'start')
+  return createPortal(
+    <div ref={ref} id={id} className={['cell-hint', error && 'is-error', !error && !count && 'is-empty'].filter(Boolean).join(' ')}>
+      <span className="cell-hint-msg" role="alert">
+        {error && (
+          <>
+            <Icon name="warningCircleFill" small />
+            {error}
+          </>
+        )}
+      </span>
+      {count && <span className={over ? 'cell-hint-count is-over' : 'cell-hint-count'}>{count}</span>}
+    </div>,
+    document.body,
+  )
+}
+
+/** Calls `onStart` when the grid asks the cell to start editing (see onCellKeyDown). */
+function useCellStart(ref: RefObject<HTMLElement | null>, onStart: (key: string) => void) {
+  const callback = useRef(onStart)
+  callback.current = onStart
+  // No deps: the element mounts again each time an edit ends.
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    const listener = (e: Event) => callback.current((e as CustomEvent<string>).detail)
+    el.addEventListener(CELL_START, listener)
+    return () => el.removeEventListener(CELL_START, listener)
+  })
+}
+
+const cellOf = (el: Element | null) => el?.closest<HTMLElement>('.td') ?? null
+
+/**
+ * Inline text editing, like the MUI X Data Grid: a click selects the cell; a double-click, Enter,
+ * F2 or the pencil starts editing with the value selected, a printable key replaces the value,
+ * and Backspace or Delete clear it. Enter saves and moves down, Tab saves and moves sideways,
+ * leaving the field saves, Escape cancels.
  */
 export function EditableText({
   label,
   value,
   type = 'text',
+  rule,
   onCommit,
   children,
 }: {
@@ -21,58 +204,32 @@ export function EditableText({
   /** Raw value ('' when empty), not the "—" placeholder shown in the cell. */
   value: string
   type?: 'text' | 'email' | 'tel'
+  rule?: TextRule
   onCommit: (next: string) => void
   children: ReactNode
 }) {
-  const [draft, setDraft] = useState<string | null>(null)
-  const editing = useRef(false)
-  const button = useRef<HTMLButtonElement>(null)
-
-  const start = () => {
-    editing.current = true
-    setDraft(value)
+  const display = useRef<HTMLDivElement>(null)
+  const cell = useRef<HTMLElement | null>(null)
+  const { start, inputProps, hint } = useInlineEdit(value, onCommit, (how) => focusAfterEdit(cell.current, how), rule)
+  const begin = (key: string) => {
+    cell.current = cellOf(display.current)
+    start(key === 'Backspace' || key === 'Delete' ? '' : key.length === 1 ? key : undefined)
   }
-  // Guarded by a ref: the input's blur can fire after Enter or Escape already finished.
-  const finish = (save: boolean, refocus: boolean) => {
-    if (!editing.current) return
-    editing.current = false
-    const next = (draft ?? '').trim()
-    if (save && next !== value) onCommit(next)
-    setDraft(null)
-    if (refocus) requestAnimationFrame(() => button.current?.focus())
-  }
+  useCellStart(display, begin)
 
-  // As a layer, Escape cancels the edit without also closing a panel or drawer behind it.
-  useDismiss(draft !== null, '.cell-input', (reason) => {
-    if (reason === 'escape') finish(false, true)
-  })
-
-  if (draft !== null) {
+  if (inputProps)
     return (
-      <input
-        className="cell-input"
-        type={type}
-        aria-label={label}
-        value={draft}
-        autoFocus
-        onFocus={(e) => e.currentTarget.select()}
-        onChange={(e) => setDraft(e.target.value)}
-        onBlur={() => finish(true, false)}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter') {
-            e.preventDefault()
-            finish(true, true)
-          }
-        }}
-      />
+      <>
+        <input {...inputProps} type={type} aria-label={label} />
+        {hint}
+      </>
     )
-  }
 
   return (
-    <button ref={button} type="button" className="cell-edit" aria-label={`Edit ${label}: ${value || 'empty'}`} onClick={start}>
+    <div ref={display} className="cell-edit" onDoubleClick={() => begin('click')}>
       {children}
-      <span className="cell-edit-trail"><Icon name="pencil" small /></span>
-    </button>
+      <span className="cell-edit-trail" onClick={() => begin('click')}><Icon name="pencil" /></span>
+    </div>
   )
 }
 
@@ -100,35 +257,48 @@ interface OptionsProps {
   onCommit: (next: string[]) => void
 }
 
+/** How the menu opened: a typed key starts the search; Backspace or Delete focus the clearing option. */
+interface MenuStart {
+  query: string
+  toClear: boolean
+}
+
 /**
- * Inline choice editing: the cell opens a menu of options under it.
- * One choice closes the menu on pick; with `multi`, options are checkboxes and each toggle saves.
+ * Inline choice editing: the cell opens a menu of options under it, like the MUI X Data Grid's
+ * select cells: a click selects the cell; a double-click, Enter, F2, Alt+↓, a printable key or the
+ * caret opens the menu. One choice closes the menu on pick; with `multi`, options are checkboxes
+ * and each toggle saves.
  */
 export function EditableOptions({ children, ...props }: OptionsProps & { children: ReactNode }) {
-  const { label, anchorKey, value, multi = false } = props
-  const [open, setOpen] = useState(false)
+  const { anchorKey } = props
+  const display = useRef<HTMLDivElement>(null)
+  const [open, setOpen] = useState<MenuStart | null>(null)
+  const begin = (key: string) =>
+    setOpen({ query: props.search && key.length === 1 ? key : '', toClear: key === 'Backspace' || key === 'Delete' })
+  useCellStart(display, begin)
 
   return (
     <>
-      <button
-        type="button"
+      <div
+        ref={display}
         className="cell-edit has-menu"
         data-menu-anchor={anchorKey}
-        aria-haspopup={multi ? 'dialog' : 'menu'}
-        aria-expanded={open}
-        aria-label={`Edit ${label}: ${value.join(', ') || 'empty'}`}
-        onClick={() => setOpen((o) => !o)}
+        data-open={open ? 'true' : undefined}
+        onDoubleClick={() => begin('click')}
       >
         {children}
-        <span className="cell-edit-trail"><Icon name="caretDown" small /></span>
-      </button>
+        <span className="cell-edit-trail" onClick={() => (open ? setOpen(null) : begin('click'))}>
+          <Icon name="caretDown" />
+        </span>
+      </div>
       {open &&
         createPortal(
           <OptionsMenu
             {...props}
+            start={open}
             onClose={(restoreFocus) => {
-              setOpen(false)
-              if (restoreFocus) anchorFor(anchorKey)?.focus()
+              setOpen(null)
+              if (restoreFocus) cellOf(anchorFor(anchorKey))?.focus()
             }}
           />,
           document.body,
@@ -147,23 +317,30 @@ function OptionsMenu({
   describe,
   search,
   onCommit,
+  start,
   onClose,
-}: OptionsProps & { onClose: (restoreFocus: boolean) => void }) {
+}: OptionsProps & { start: MenuStart; onClose: (restoreFocus: boolean) => void }) {
   const ref = useRef<HTMLDivElement>(null)
   const list = useRef<HTMLDivElement>(null)
   const input = useRef<HTMLInputElement>(null)
-  const [query, setQuery] = useState('')
+  const [query, setQuery] = useState(start.query)
   const focusables = () =>
     Array.from(ref.current!.querySelectorAll<HTMLElement>('.cell-menu-search input, button.menu-item, .menu-item input'))
   const [options] = useState(() => (typeof optionsProp === 'function' ? optionsProp() : optionsProp))
 
-  useDismiss(true, `.cell-menu, [data-menu-anchor="${anchorKey}"]`, (reason) => onClose(reason === 'escape'))
+  // The caret toggles the menu itself, so a press on it isn't an outside press.
+  useDismiss(true, `.cell-menu, [data-menu-anchor="${anchorKey}"] .cell-edit-trail`, (reason) => onClose(reason === 'escape'))
   useAnchoredPosition(ref, anchorKey, 'start', true)
   useLayoutEffect(() => {
+    const clear = start.toClear && ref.current!.querySelector<HTMLElement>('[data-clear]')
+    if (clear) {
+      clear.focus({ preventScroll: true })
+      return
+    }
     if (search) {
       // Focus stays in the search field; the current choice is scrolled to the middle of the list.
       input.current!.focus({ preventScroll: true })
-      const current = list.current!.querySelector<HTMLElement>('[aria-checked="true"]')
+      const current = !start.query && list.current!.querySelector<HTMLElement>('[aria-checked="true"]')
       if (current) list.current!.scrollTop = current.offsetTop - (list.current!.clientHeight - current.offsetHeight) / 2
       return
     }
@@ -222,6 +399,7 @@ function OptionsMenu({
       role="menuitemradio"
       aria-checked={checked}
       className={desc ? 'menu-item has-desc' : 'menu-item'}
+      data-clear={key === '' || undefined}
       onClick={() => pick(next, checked)}
     >
       {desc ? (

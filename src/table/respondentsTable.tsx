@@ -1,28 +1,27 @@
 import {
   columnFilteringFeature,
-  columnGroupingFeature,
+  columnOrderingFeature,
   columnPinningFeature,
   columnResizingFeature,
   columnSizingFeature,
   columnVisibilityFeature,
   createColumnHelper,
-  createExpandedRowModel,
   createFilteredRowModel,
-  createGroupedRowModel,
   createSortedRowModel,
   globalFilteringFeature,
   metaHelper,
-  rowExpandingFeature,
   rowSelectionFeature,
   rowSortingFeature,
   tableFeatures,
   type Row,
   type SortFn,
 } from '@tanstack/react-table'
+import { useEffect, useRef } from 'react'
 import { Checkbox } from '../components/Checkbox'
-import { EditableOptions, EditableText } from '../components/EditableCell'
+import { EditableOptions, EditableText, useInlineEdit, type TextRule } from '../components/EditableCell'
 import { Icon, type IconName } from '../components/Icon'
 import { Tag } from '../components/Tag'
+import { TagList } from '../components/TagList'
 import { IconButton, IconLabel } from '../components/Tooltip'
 import {
   INTERVIEW_ROLES,
@@ -30,12 +29,12 @@ import {
   SEGMENTS,
   SORT_ORDER,
   canEditContact,
+  initialsFor,
   interviewSession,
   limitPII,
   priorInterviewDate,
   selfCaptures,
   sourceLabel,
-  type GroupBy,
   type Respondent,
   type SegmentDef,
 } from '../data/respondents'
@@ -43,13 +42,11 @@ import { allTimezones, timezoneDescription, timezoneInfo, timezoneSearchText } f
 import { matchesFilters, type Filters } from '../filters/filters'
 
 export interface RespondentColumnMeta {
-  kind: 'int' | 'std' | 'core' | 'seg' | 'internal'
+  kind: 'int' | 'std' | 'core' | 'seg'
   /** The header shows this icon, with the column name in a tooltip. */
   icon?: IconName
   /** Personal data: the header shows a "PII" marker. */
   pii?: boolean
-  /** Grouping offered from this column's header menu. */
-  groupKey?: Exclude<GroupBy, 'none'>
 }
 
 export type MenuState = { type: 'row' | 'col'; id: string } | null
@@ -65,6 +62,10 @@ export interface RespondentTableMeta {
   /** Respondents added in this session (shown with a "New" tag). */
   newIds: ReadonlySet<string>
   menu: MenuState
+  /** "Rename" was picked in this row's menu: its name turns into a text field. */
+  renamingId: string | null
+  /** The name field opened, so the rename request is done. */
+  onRenameStarted: () => void
   onOpen: (id: string) => void
   onToggleMenu: (menu: NonNullable<MenuState>) => void
   /** Saves an inline cell edit. */
@@ -75,19 +76,16 @@ export interface RespondentTableMeta {
 
 export const features = tableFeatures({
   columnVisibilityFeature,
+  columnOrderingFeature,
   columnPinningFeature,
   columnSizingFeature,
   columnResizingFeature,
   columnFilteringFeature,
   globalFilteringFeature,
-  columnGroupingFeature,
   rowSortingFeature,
-  rowExpandingFeature,
   rowSelectionFeature,
   filteredRowModel: createFilteredRowModel(),
-  groupedRowModel: createGroupedRowModel(),
   sortedRowModel: createSortedRowModel(),
-  expandedRowModel: createExpandedRowModel(),
   columnMeta: metaHelper<RespondentColumnMeta>(),
   tableMeta: metaHelper<RespondentTableMeta>(),
 })
@@ -96,7 +94,7 @@ export type RespondentRow = Row<typeof features, Respondent>
 
 /* ---------- Sorting: ascending comparators, Table reverses for desc ---------- */
 
-// Group header rows have no value for leaf columns, so groups keep their data order.
+// Missing values sort after every value.
 function compareDefined(a: unknown, b: unknown, compare: (x: never, y: never) => number) {
   if (a === undefined || b === undefined) return a === b ? 0 : a === undefined ? 1 : -1
   return compare(a as never, b as never)
@@ -114,6 +112,36 @@ const byUtcOffset: SortFn<typeof features, Respondent> = (a, b, id) =>
   })
 const byFavorite: SortFn<typeof features, Respondent> = (a, b, id) =>
   compareDefined(a.getValue(id), b.getValue(id), (x: boolean, y: boolean) => Number(y) - Number(x))
+/**
+ * Email and phone sort by the stored value, not what the cell shows: respondents without contact
+ * details come last, and hidden PII doesn't sort at all (its order would give the values away).
+ * Phones compare by their digits, so "+1 555 0101" and "+15550101" sit together.
+ */
+const contactValue = (row: RespondentRow, field: 'email' | 'phone') =>
+  row.original.src === 'rio' || limitPII ? undefined : row.original[field]
+const byEmail: SortFn<typeof features, Respondent> = (a, b) =>
+  compareDefined(contactValue(a, 'email'), contactValue(b, 'email'), (x: string, y: string) =>
+    x.toLowerCase().localeCompare(y.toLowerCase()),
+  )
+const byPhone: SortFn<typeof features, Respondent> = (a, b) =>
+  compareDefined(contactValue(a, 'phone'), contactValue(b, 'phone'), (x: string, y: string) =>
+    x.replace(/\D/g, '').localeCompare(y.replace(/\D/g, ''), undefined, { numeric: true }),
+  )
+/**
+ * Segments sort in their options' order (age bands young to old, frequency daily to never),
+ * not alphabetically. Multi-choice values compare choice by choice in that order; empty last.
+ */
+function bySegment(def: SegmentDef): SortFn<typeof features, Respondent> {
+  const ranks = (r: Respondent) => {
+    const values = r.segments[def.key] ?? []
+    return values.length ? values.map((v) => def.options.indexOf(v)).sort((x, y) => x - y) : undefined
+  }
+  return (a, b) =>
+    compareDefined(ranks(a.original), ranks(b.original), (x: number[], y: number[]) => {
+      for (let i = 0; i < Math.min(x.length, y.length); i++) if (x[i] !== y[i]) return x[i] - y[i]
+      return x.length - y.length
+    })
+}
 
 /** Global filter: every structured filter plus the multi-term search. */
 export function respondentFilter(row: RespondentRow, _columnId: string, filters: Filters) {
@@ -124,32 +152,77 @@ export function respondentFilter(row: RespondentRow, _columnId: string, filters:
 
 function SegmentCell({ values }: { values: readonly string[] }) {
   if (!values.length) return <span className="cell-dash">—</span>
-  return <span className="chip-list">{values.map((v) => <Tag key={v}>{v}</Tag>)}</span>
+  return <TagList values={values} />
 }
 
+/* Limits on the text typed into cells. A value that breaks one shows an error and isn't saved. */
+const NAME_RULE: TextRule = { label: 'Name', max: 100, required: true }
+const EMAIL_RULE: TextRule = {
+  label: 'Email',
+  // The longest address mail servers accept
+  max: 254,
+  check: (v) => (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v) ? null : 'Enter an email like name@example.com.'),
+}
+const PHONE_RULE: TextRule = {
+  label: 'Phone',
+  max: 20,
+  check: (v) => (/^[\d\s+()-]+$/.test(v) ? null : 'Use only digits, spaces, +, - and parentheses.'),
+}
+
+/**
+ * Checkbox, name and row actions. The name opens the detail panel; "Rename" in the ⋮ menu
+ * swaps it for a text field, and focus returns to the ⋮ after. An empty or too long name
+ * shows an error and isn't saved.
+ */
 function RespondentCell({ row, meta }: { row: RespondentRow; meta: RespondentTableMeta }) {
   const r = row.original
   const menuOpen = meta.menu?.type === 'row' && meta.menu.id === r.id
+  const menuBtn = useRef<HTMLButtonElement>(null)
+  const { start, inputProps, hint } = useInlineEdit(
+    r.name,
+    (next) => next && meta.onUpdate(r.id, { name: next, initials: initialsFor(next) }),
+    () => menuBtn.current?.focus(),
+    NAME_RULE,
+  )
+  const renameRequested = meta.renamingId === r.id
+  useEffect(() => {
+    if (!renameRequested) return
+    start()
+    meta.onRenameStarted()
+  }, [renameRequested])
   return (
     <>
       <Checkbox
+        tabIndex={-1}
         checked={row.getIsSelected()}
         onChange={row.getToggleSelectedHandler()}
         aria-label={`Select ${r.name}, ${r.pid}`}
       />
       <span className="who">
-        <button
-          type="button"
-          className="who-name"
-          data-opener={r.id}
-          onClick={() => meta.onOpen(r.id)}
-        >
-          {r.name}
-        </button>
-        {meta.newIds.has(r.id) && <Tag variant="feature">New</Tag>}
+        {inputProps ? (
+          <>
+            <input {...inputProps} type="text" aria-label={`Name of ${r.name}, ${r.pid}`} />
+            {hint}
+          </>
+        ) : (
+          <>
+            <button
+              type="button"
+              tabIndex={-1}
+              className="who-name"
+              data-opener={r.id}
+              onClick={() => meta.onOpen(r.id)}
+            >
+              {r.name}
+            </button>
+            {meta.newIds.has(r.id) && <Tag variant="feature">New</Tag>}
+          </>
+        )}
       </span>
       <button
+        ref={menuBtn}
         type="button"
+        tabIndex={-1}
         className="icon-btn row-menu"
         data-menu-anchor={`row:${r.id}`}
         aria-haspopup="menu"
@@ -181,6 +254,7 @@ function SelfCaptureCell({ r, meta }: { r: Respondent; meta: RespondentTableMeta
   return (
     <IconButton
       className="media-btn"
+      tabIndex={-1}
       label={`Open self captures for ${r.name} (${tip})`}
       tip={tip}
       onClick={() => meta.onPlay(r.id, 'self')}
@@ -196,6 +270,7 @@ function TechCheckCell({ r, meta }: { r: Respondent; meta: RespondentTableMeta }
   return (
     <IconButton
       className="media-btn"
+      tabIndex={-1}
       label={`Open tech check for ${r.name}`}
       tip="Tech check: Completed"
       onClick={() => meta.onPlay(r.id, 'tech')}
@@ -215,9 +290,9 @@ function segmentColumn(def: SegmentDef) {
   return helper.accessor((r) => (r.segments[def.key] ?? []).join(', '), {
     id,
     header: def.label,
-    enableSorting: false,
+    sortFn: bySegment(def),
     size: def.size,
-    meta: { kind: 'seg', groupKey: def.multi ? undefined : def.key },
+    meta: { kind: 'seg' },
     cell: ({ row, table }) => {
       const r = row.original
       const values = r.segments[def.key] ?? []
@@ -238,18 +313,6 @@ function segmentColumn(def: SegmentDef) {
   })
 }
 
-/** Hidden column the "Group by" control groups single-value segments by. */
-function segmentGroupColumn(def: SegmentDef) {
-  return helper.accessor((r) => r.segments[def.key]?.[0], {
-    id: def.key,
-    header: def.label,
-    enableHiding: false,
-    enableSorting: false,
-    enableResizing: false,
-    meta: { kind: 'internal' },
-  })
-}
-
 function TextCell({ value }: { value: string }) {
   return <span className={value === '—' ? 'cell-dash' : 'cell-main'}>{value}</span>
 }
@@ -261,6 +324,7 @@ function ContactCell({ r, field, shown, meta }: { r: Respondent; field: 'email' 
     <EditableText
       label={`${field === 'email' ? 'Email' : 'Phone'} for ${r.name}`}
       type={field === 'email' ? 'email' : 'tel'}
+      rule={field === 'email' ? EMAIL_RULE : PHONE_RULE}
       value={r[field] ?? ''}
       onCommit={(v) => meta.onUpdate(r.id, { [field]: v || undefined })}
     >
@@ -350,6 +414,7 @@ function FavoriteCell({ r, meta }: { r: Respondent; meta: RespondentTableMeta })
   return (
     <button
       type="button"
+      tabIndex={-1}
       className={r.fav ? 'fav-toggle is-on' : 'fav-toggle'}
       aria-pressed={r.fav}
       aria-label={`Favorite ${r.name}`}
@@ -464,7 +529,7 @@ export const columns = helper.columns([
   helper.accessor((r) => (r.src === 'rio' ? '—' : limitPII ? 'Hidden' : (r.email ?? '—')), {
     id: 'email',
     header: 'Email',
-    enableSorting: false,
+    sortFn: byEmail,
     size: 240,
     meta: { kind: 'std', pii: true },
     cell: ({ row, table, getValue }) => <ContactCell r={row.original} field="email" shown={getValue()} meta={table.options.meta!} />,
@@ -472,7 +537,7 @@ export const columns = helper.columns([
   helper.accessor((r) => (r.src === 'rio' ? '—' : limitPII ? 'Hidden' : (r.phone ?? '—')), {
     id: 'phone',
     header: 'Phone',
-    enableSorting: false,
+    sortFn: byPhone,
     size: 180,
     meta: { kind: 'std', pii: true },
     cell: ({ row, table, getValue }) => <ContactCell r={row.original} field="phone" shown={getValue()} meta={table.options.meta!} />,
@@ -490,21 +555,8 @@ export const columns = helper.columns([
     header: 'Source',
     sortFn: byText,
     size: 180,
-    meta: { kind: 'std', groupKey: 'source' },
+    meta: { kind: 'std' },
     cell: ({ getValue }) => <TextCell value={getValue()} />,
   }),
   ...SEGMENTS.map(segmentColumn),
-  // Grouping-only columns: always hidden, used by the "Group by" control.
-  ...SEGMENTS.filter((s) => !s.multi).map(segmentGroupColumn),
 ])
-
-export const DEFAULT_COLUMN_VISIBILITY: Record<string, boolean> = Object.fromEntries(
-  SEGMENTS.filter((s) => !s.multi).map((s) => [s.key, false]),
-)
-
-/** Sections of the "Columns" panel. */
-export const COLUMN_PANEL_GROUPS: Array<{ name: string; match: (meta: RespondentColumnMeta) => boolean }> = [
-  { name: 'Interview', match: (m) => m.kind === 'int' },
-  { name: 'Standard values', match: (m) => m.kind === 'std' },
-  { name: 'Segments', match: (m) => m.kind === 'seg' },
-]

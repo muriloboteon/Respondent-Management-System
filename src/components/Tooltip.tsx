@@ -57,7 +57,7 @@ export function Tooltip({ label, title, anchor }: { label: string; title?: Toolt
 }
 
 /** Shows a tooltip for an element after the hover delay; `hide` cancels or removes it. */
-function useHoverTooltip() {
+export function useHoverTooltip() {
   const timer = useRef<number | undefined>(undefined)
   const [tip, setTip] = useState<{ label: string; title?: TooltipTitle; anchor: DOMRect } | null>(null)
 
@@ -99,7 +99,8 @@ export function TruncatedText({ className, hint, children }: { className: string
   const onEnter = () => {
     const el = ref.current
     if (!el) return
-    const cutOff = el.scrollWidth > el.clientWidth
+    // Cut off on one line (ellipsis) or after a few lines (line clamp); 1px of rounding isn't a cut.
+    const cutOff = el.scrollWidth > el.clientWidth || el.scrollHeight > el.clientHeight + 1
     const text = el.textContent ?? ''
     if (hint) show(el, cutOff ? `${text} · ${hint}` : hint)
     else if (cutOff) show(el, text)
@@ -121,12 +122,15 @@ export function IconButton({
   label,
   tip,
   onClick,
+  tabIndex,
   children,
 }: {
   className: string
   label: string
   tip: string
   onClick: () => void
+  /** -1 inside grid cells, where the cell is the Tab stop. */
+  tabIndex?: number
   children: ReactNode
 }) {
   const { tooltip, show, hide } = useHoverTooltip()
@@ -134,6 +138,7 @@ export function IconButton({
     <>
       <button
         type="button"
+        tabIndex={tabIndex}
         className={className}
         aria-label={label}
         onClick={onClick}
