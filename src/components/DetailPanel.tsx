@@ -1,4 +1,4 @@
-import { useState, type KeyboardEvent, type PointerEvent, type ReactNode, type Ref } from 'react'
+import { useState, type ReactNode, type Ref } from 'react'
 import {
   SEGMENTS,
   dupInfo,
@@ -7,9 +7,10 @@ import {
   timezoneLabel,
   type MethodStatus,
   type Respondent,
-} from '../data/respondents'
+} from '@data/respondents'
 import { FloatingMenu } from './FloatingMenu'
 import { Icon } from './Icon'
+import { PanelResize } from './PanelResize'
 import { StatusTag, Tag } from './Tag'
 import { ASSIGN_ITEMS } from './respondentActions'
 
@@ -174,28 +175,6 @@ export function DetailPanel({
   const hideContact = r.src === 'rio' || limitPII
   const { shown, empty } = detailFields(r, hideContact)
 
-  const startResize = (e: PointerEvent<HTMLDivElement>) => {
-    e.preventDefault()
-    const handle = e.currentTarget
-    handle.setPointerCapture(e.pointerId)
-    const move = (ev: globalThis.PointerEvent) => onWidthChange(window.innerWidth - ev.clientX)
-    const up = () => {
-      handle.removeEventListener('pointermove', move)
-      handle.removeEventListener('pointerup', up)
-      document.body.classList.remove('is-resizing')
-    }
-    handle.addEventListener('pointermove', move)
-    handle.addEventListener('pointerup', up)
-    document.body.classList.add('is-resizing')
-  }
-  const onResizeKey = (e: KeyboardEvent<HTMLDivElement>) => {
-    const step = e.shiftKey ? 64 : 16
-    if (e.key === 'ArrowLeft') onWidthChange(width + step)
-    else if (e.key === 'ArrowRight') onWidthChange(width - step)
-    else return
-    e.preventDefault()
-  }
-
   return (
     <aside
       className="detail"
@@ -205,18 +184,7 @@ export function DetailPanel({
       inert={hidden}
     >
       {resizable && (
-        <div
-          className="detail-resize"
-          role="separator"
-          aria-orientation="vertical"
-          aria-label="Resize respondent panel"
-          aria-valuemin={DETAIL_MIN_W}
-          aria-valuemax={DETAIL_MAX_W}
-          aria-valuenow={width}
-          tabIndex={0}
-          onPointerDown={startResize}
-          onKeyDown={onResizeKey}
-        />
+        <PanelResize label="Resize respondent panel" width={width} min={DETAIL_MIN_W} max={DETAIL_MAX_W} onWidthChange={onWidthChange} />
       )}
 
       <div className="detail-bar">

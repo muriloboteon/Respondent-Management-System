@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, type RefObject } from 'react'
-import { projectCount, type Respondent } from '../data/respondents'
+import { projectCount, type Respondent } from '@data/respondents'
 import { METRICS, matchesConditions, type MetricId } from '../filters/filters'
 import { TruncatedText } from './Tooltip'
 

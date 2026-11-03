@@ -37,8 +37,8 @@ import {
   sourceLabel,
   type Respondent,
   type SegmentDef,
-} from '../data/respondents'
-import { allTimezones, timezoneDescription, timezoneInfo, timezoneSearchText } from '../data/timezones'
+} from '@data/respondents'
+import { allTimezones, timezoneDescription, timezoneInfo, timezoneSearchText } from '@data/timezones'
 import { matchesFilters, type Filters } from '../filters/filters'
 
 export interface RespondentColumnMeta {
@@ -287,6 +287,9 @@ function TechCheckCell({ r, meta }: { r: Respondent; meta: RespondentTableMeta }
 
 const helper = createColumnHelper<typeof features, Respondent>()
 
+/** Segments with more values than this get a search field in the cell menu, over a scrolling list. */
+const SEGMENT_SEARCH_FROM = 8
+
 /** One column per segment, e.g. "segAge"; values are edited in the cell. */
 function segmentColumn(def: SegmentDef) {
   const id = `seg${def.key.charAt(0).toUpperCase()}${def.key.slice(1)}`
@@ -305,6 +308,7 @@ function segmentColumn(def: SegmentDef) {
           anchorKey={`cell:${row.id}:${id}`}
           value={values}
           options={def.options}
+          search={def.options.length > SEGMENT_SEARCH_FROM ? { label: `Search ${def.label}` } : undefined}
           multi={def.multi}
           emptyLabel={def.multi ? undefined : 'Not set'}
           onCommit={(next) => table.options.meta!.onUpdate(row.id, { segments: { ...r.segments, [def.key]: next.filter(Boolean) } })}

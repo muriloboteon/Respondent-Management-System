@@ -13,7 +13,7 @@ import { DETAIL_MAX_W, DETAIL_MIN_W, DetailPanel } from './components/DetailPane
 import { Icon } from './components/Icon'
 import { PasteImportDialog } from './components/PasteImportDialog'
 import { FloatingMenu, type MenuItem } from './components/FloatingMenu'
-import type { FilterLayer } from './components/FilterChips'
+import { FILTER_DEFAULT_W, FILTER_MAX_W, FILTER_MIN_W, FilterPanel } from './components/FilterPanel'
 import { ListHeader, type Panel } from './components/ListHeader'
 import { OrgRail } from './components/OrgRail'
 import { ProjectSidebar, ProjectSidebarToggle } from './components/ProjectSidebar'
@@ -22,7 +22,7 @@ import { RemoveConfirm } from './components/RemoveConfirm'
 import { SelfCaptureHistoryDialog } from './components/SelfCaptureHistoryDialog'
 import { TechCheckDialog } from './components/TechCheckDialog'
 import { ASSIGN_ITEMS, SEGMENT_ITEMS } from './components/respondentActions'
-import { TOTAL_RESPONDENTS, respondents, type Respondent } from './data/respondents'
+import { TOTAL_RESPONDENTS, projectCount, respondents, type Respondent } from '@data/respondents'
 import {
   EMPTY_FILTERS,
   activeMetric,
@@ -70,9 +70,11 @@ const isColumnPinning = (v: unknown): v is ColumnPinningState => {
 }
 /** Width of the left navigation (org rail, plus the project sidebar when open); matches --nav-w in app.css. */
 const navWidth = (projectNavOpen: boolean) => 72 + (projectNavOpen ? 240 : 0)
-/** Keeps the docked panel within its limits and leaves room for the table beside the left navigation. */
-const clampDetailWidth = (w: number, projectNavOpen: boolean) =>
-  Math.round(Math.max(DETAIL_MIN_W, Math.min(w, DETAIL_MAX_W, window.innerWidth - navWidth(projectNavOpen) - 640)))
+/** Keeps a docked panel within its limits and leaves room for the table beside the left navigation. */
+const clampPanelWidth = (w: number, min: number, max: number, projectNavOpen: boolean) =>
+  Math.round(Math.max(min, Math.min(w, max, window.innerWidth - navWidth(projectNavOpen) - 640)))
+const clampDetailWidth = (w: number, projectNavOpen: boolean) => clampPanelWidth(w, DETAIL_MIN_W, DETAIL_MAX_W, projectNavOpen)
+const clampFilterWidth = (w: number, projectNavOpen: boolean) => clampPanelWidth(w, FILTER_MIN_W, FILTER_MAX_W, projectNavOpen)
 
 export function App() {
   const [data, setData] = useState<Respondent[]>(respondents)
@@ -99,11 +101,15 @@ export function App() {
   /** The detail is shown as a centered modal instead of the side panel. */
   const [detailExpanded, setDetailExpanded] = useState(false)
   const [detailWidth, setDetailWidth] = useStoredState('respondent-hub:detail-width', 440, isNumber)
+  const [filterWidth, setFilterWidth] = useStoredState('respondent-hub:filter-width', FILTER_DEFAULT_W, isNumber)
   const [projectNavOpen, setProjectNavOpen] = useStoredState('respondent-hub:project-nav-open', true, isBoolean)
   const [panel, setPanel] = useState<Panel>(null)
   const [menu, setMenu] = useState<MenuState>(null)
-  /** The filter popover; the list header and the column menu both open it. */
-  const [filterLayer, setFilterLayer] = useState<FilterLayer>(null)
+  /**
+   * The filters drawer, in the detail panel's place (null when closed). `prop` is the section to
+   * open and scroll to (a chip, a column's "Filter…"); a new `seq` asks again while it's open.
+   */
+  const [filterPanel, setFilterPanel] = useState<{ prop: string | null; seq: number } | null>(null)
   /** A row whose name should turn into a text field ("Rename" in the row menu). */
   const [renamingId, setRenamingId] = useState<string | null>(null)
   /** The "more actions" menu next to Upload Respondents. */
@@ -117,7 +123,9 @@ export function App() {
   const isWide = useMediaQuery('(min-width: 1280px)')
   const closeBtn = useRef<HTMLButtonElement>(null)
 
+  // The respondent detail and the filters share the side panel: opening one closes the other.
   const openDetail = (id: string) => {
+    setFilterPanel(null)
     setSelectedId(id)
     setDrawerOpen(true)
     setMenu(null)
@@ -129,6 +137,19 @@ export function App() {
     setDetailExpanded(false)
     requestAnimationFrame(() => document.querySelector<HTMLElement>(`[data-opener="${id}"]`)?.focus())
   }
+  const openFilters = (prop: string | null) => {
+    setSelectedId(null)
+    setDrawerOpen(false)
+    setDetailExpanded(false)
+    setMenu(null)
+    setPanel(null)
+    setFilterPanel((cur) => ({ prop, seq: (cur?.seq ?? 0) + 1 }))
+  }
+  const closeFilters = () => {
+    setFilterPanel(null)
+    requestAnimationFrame(() => document.querySelector<HTMLElement>('[data-filters-toggle]')?.focus())
+  }
+  const closeSidePanel = () => (filterPanel ? closeFilters() : closeDetail())
 
   const table = useTable({
     features,
@@ -166,7 +187,6 @@ export function App() {
       onOpen: openDetail,
       onToggleMenu: (next) => {
         setPanel(null)
-        setFilterLayer(null)
         setMenu((cur) => (cur && cur.type === next.type && cur.id === next.id ? null : next))
       },
       onCellMenu: (rowId, columnId) => {
@@ -174,7 +194,6 @@ export function App() {
         const r = data.find((x) => x.id === rowId)
         if (!prop || !r || !cellFilterValues(prop, r).length) return false
         setPanel(null)
-        setFilterLayer(null)
         setMenu({ type: 'cell', id: rowId, col: columnId })
         return true
       },
@@ -241,15 +260,16 @@ export function App() {
     setLastAdded(null)
   }
 
-  const selected =data.find((r) => r.id === selectedId) ?? null
+  const selected = data.find((r) => r.id === selectedId) ?? null
+  const filtersOpen = filterPanel !== null
   /** On narrow screens the side panel slides over the table. */
   const asDialog = !isWide
   /** Expanded: the detail opens as a centered modal at any width. */
   const modalOpen = selected !== null && detailExpanded
-  const drawerOverlay = asDialog && selected !== null && drawerOpen && !detailExpanded
+  const drawerOverlay = asDialog && (filtersOpen || (selected !== null && drawerOpen && !detailExpanded))
   const overlayOpen = drawerOverlay || modalOpen
-  const docked = !asDialog && selected !== null && !detailExpanded
-  const panelWidth = clampDetailWidth(detailWidth, projectNavOpen)
+  const docked = !asDialog && (filtersOpen || (selected !== null && !detailExpanded))
+  const panelWidth = filtersOpen ? clampFilterWidth(filterWidth, projectNavOpen) : clampDetailWidth(detailWidth, projectNavOpen)
 
   // Previous / next follow the table's current order (sorting and filters).
   const order = table.getRowModel().rows.map((row) => row.id)
@@ -263,10 +283,10 @@ export function App() {
     if (!overlayOpen) return
     if (!document.activeElement?.closest('.detail')) closeBtn.current?.focus()
     const onKey = (e: KeyboardEvent) =>
-      e.key === 'Escape' && !document.querySelector('dialog[open], .menu') && closeDetail()
+      e.key === 'Escape' && !document.querySelector('dialog[open], .menu') && closeSidePanel()
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
-  }, [overlayOpen])
+  }, [overlayOpen, filtersOpen])
 
   const pickedCount = data.filter((r) => rowSelection[r.id]).length
   const total = TOTAL_RESPONDENTS + data.length - respondents.length
@@ -288,19 +308,10 @@ export function App() {
           ...(sorted ? [{ label: 'Unsort', onSelect: () => column.clearSorting() }] : []),
         ])
       }
-      // Opens the filter popover on this column's values, under the header's menu button.
+      // Opens the filters drawer on this column's section.
       const filterProp = propertyForColumn(column.id)
       if (filterProp) {
-        groups.push([
-          {
-            label: 'Filter…',
-            icon: 'funnel',
-            onSelect: () => {
-              setPanel(null)
-              setFilterLayer({ kind: 'column', prop: filterProp.id, anchorKey: `col:${column.id}` })
-            },
-          },
-        ])
+        groups.push([{ label: 'Filter…', icon: 'funnel', onSelect: () => openFilters(filterProp.id) }])
       }
       // Respondent can't be pinned or unpinned (it is always pinned).
       if (column.getCanPin() && column.getIsPinned()) {
@@ -478,11 +489,9 @@ export function App() {
                 setMenu(null)
                 setPanel(p)
               }}
-              filterLayer={filterLayer}
-              onFilterLayerChange={(layer) => {
-                setMenu(null)
-                setFilterLayer(layer)
-              }}
+              filtersOpen={filtersOpen}
+              onToggleFilters={() => (filtersOpen ? closeFilters() : openFilters(null))}
+              onEditFilter={openFilters}
               pickedCount={pickedCount}
               onRemovePicked={() => askRemove(data.filter((r) => rowSelection[r.id]).map((r) => r.id))}
               onPasteClick={PASTE_IMPORT_ENABLED ? () => setPasteText('') : undefined}
@@ -510,7 +519,22 @@ export function App() {
             <RespondentsTable table={table} pinLimit={pinLimit} onWidthChange={setTableWidth} onScrolledChange={setTableScrolled} />
           </section>
 
-          {selected && (
+          {filterPanel && (
+            <FilterPanel
+              filters={filters}
+              data={data}
+              toProject={(n) => projectCount(n, data.length, total)}
+              asDialog={asDialog}
+              resizable={docked}
+              width={panelWidth}
+              onWidthChange={(w) => setFilterWidth(clampFilterWidth(w, projectNavOpen))}
+              focus={filterPanel}
+              closeRef={closeBtn}
+              onConditionsChange={(conditions) => setFilters((prev) => ({ ...prev, conditions }))}
+              onClose={closeFilters}
+            />
+          )}
+          {selected && !filterPanel && (
             <DetailPanel
               r={selected}
               all={data}
@@ -534,7 +558,7 @@ export function App() {
           )}
         </div>
       </main>
-      <div className="scrim" onClick={closeDetail} />
+      <div className="scrim" onClick={closeSidePanel} />
       <div className="scrim-sheet" />
       {menuNode}
       {removing && (

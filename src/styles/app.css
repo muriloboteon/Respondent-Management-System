@@ -225,29 +225,45 @@ svg.icon-sm { width: 12px; height: 12px; }
 }
 .col-row.drop-before::before { top: -1px; }
 .col-row.drop-after::after { bottom: -1px; }
-/* Filter popover: one box under the button that opened it ("+ Add filter" or a chip). Picking a
-   column swaps its content for the values in place; the box keeps one size, so nothing moves.
-   The filter is only added with the footer button. */
-.fp-picker {
-  position: fixed; z-index: 70; width: 320px; max-width: calc(100vw - 16px); height: min(400px, calc(100vh - 16px));
-  display: flex; flex-direction: column; gap: var(--sp-2); padding: var(--sp-2);
-  background: var(--surface-background); border: 1px solid var(--foreground-border);
-  border-radius: var(--radius-md); box-shadow: var(--shadow-md);
+/* Filters drawer: the detail panel's place, resizable like it. A property search, then one
+   collapsible section per property (+ / −), split by dividers. Ticking a value applies it. */
+.fpanel-search { flex: none; padding: var(--sp-3) var(--sp-4) var(--sp-1); }
+.fpanel-heading { margin: var(--sp-3) 0 var(--sp-1); padding: 0 var(--sp-4); font-size: var(--fs-xs); line-height: 16px; color: var(--foreground-secondary-muted); }
+.fpanel-section { border-bottom: 1px solid var(--foreground-border); }
+.fpanel-section-head {
+  display: flex; align-items: center; gap: var(--sp-2); width: 100%; min-height: 44px; padding: 0 var(--sp-4);
+  border: 0; background: none; font-size: var(--fs-sm); font-weight: 600; text-align: left; color: var(--foreground);
 }
-.fp-picker > .field { flex: none; }
-.fp-picker-list { flex: 1; min-height: 0; overflow-y: auto; }
-.fp-picker-heading {
-  margin: var(--sp-2) 0 var(--sp-1); padding: 0 var(--sp-2);
-  font-size: 11px; font-weight: 500; letter-spacing: var(--tracking-wide); text-transform: uppercase; color: var(--foreground-muted);
+.fpanel-section-head:hover { background: var(--background-secondary); }
+.fpanel-section-head:focus-visible { outline: 2px solid var(--foreground-ring); outline-offset: -2px; }
+.fpanel-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fpanel-section-head > .icon { flex: none; margin-left: auto; color: var(--foreground-secondary-muted); }
+/* A filtered section, open or closed: how many values are ticked (a dot for text and dates) */
+.fpanel-badge {
+  flex: none; display: inline-flex; align-items: center; justify-content: center; min-width: 18px; height: 18px; padding: 0 var(--sp-1);
+  border-radius: var(--radius-full); background: var(--orchid-100); font-size: 11px; font-weight: 600; color: var(--foreground-accent-soft);
+  font-variant-numeric: tabular-nums;
 }
-.fp-picker-list > :first-child > .fp-picker-heading { margin-top: 0; }
-.fp-picker-foot {
-  flex: none; display: flex; justify-content: flex-end; gap: var(--sp-2);
-  margin: 0 calc(var(--sp-2) * -1) calc(var(--sp-2) * -1); padding: var(--sp-2);
-  border-top: 1px solid var(--foreground-border);
+.fpanel-badge.is-dot { min-width: 8px; width: 8px; height: 8px; padding: 0; background: var(--foreground-accent); }
+.fpanel-more { align-self: flex-start; min-height: 28px; font-size: var(--fs-xs); }
+.fpanel-body { display: flex; flex-direction: column; gap: var(--sp-2); padding: 0 var(--sp-4) var(--sp-3); }
+.fpanel-row { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); }
+.fpanel-note { margin: 0; font-size: var(--fs-xs); color: var(--foreground-secondary-muted); }
+.fpanel-select { width: auto; flex: 0 1 auto; }
+.fpanel-values { display: flex; flex-direction: column; }
+.fpanel-values .check-row { min-height: 32px; padding-block: var(--sp-1); font-size: var(--fs-sm); }
+/* Long value names wrap to two lines before the ellipsis (the row's tooltip has the full name) */
+.fpanel-values .fp-value-name {
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2;
+  white-space: normal; overflow-wrap: anywhere; line-height: 1.35;
 }
-.fp-in-use { flex: none; font-size: 11px; color: var(--foreground-muted); }
-.fp-back { width: 28px; height: 28px; margin-left: calc(var(--sp-1) * -1); }
+.fpanel-values .fp-option { margin: 0 calc(var(--sp-2) * -1); width: calc(100% + var(--sp-2) * 2); }
+.fpanel-empty { padding: 0 var(--sp-2); }
+/* Filters button: how many filters apply */
+.filter-count {
+  display: inline-flex; align-items: center; justify-content: center; min-width: 18px; height: 18px; padding: 0 var(--sp-1);
+  border-radius: var(--radius-full); background: var(--orchid-100); font-size: 11px; font-weight: 600; color: var(--foreground-accent-soft);
+}
 .fp-option {
   display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); width: 100%; min-height: 32px;
   padding: 0 var(--sp-2); border: 0; border-radius: var(--radius-sm); background: none;
@@ -256,11 +272,6 @@ svg.icon-sm { width: 12px; height: 12px; }
 .fp-option:hover, .fp-option:focus-visible { background: var(--background-accent-soft); outline: none; }
 .fp-option .icon-sm { color: var(--foreground-accent); }
 .fp-picker-empty { margin: var(--sp-2); font-size: var(--fs-sm); color: var(--foreground-secondary-muted); }
-.fp-editor-head { flex: none; display: flex; align-items: center; gap: var(--sp-1); min-height: 28px; padding-left: var(--sp-2); }
-.fp-editor-prop { font-size: var(--fs-sm); font-weight: 600; color: var(--foreground-primary); }
-.fp-editor-mode { padding: 0 var(--sp-1-5); font-size: var(--fs-sm); color: var(--foreground-secondary-muted); }
-.fp-checklist { display: flex; flex-direction: column; }
-.fp-checklist .check-row { min-height: 32px; margin: 0; font-size: var(--fs-sm); }
 /* How many respondents each choice matches with the other filters; choices with none read as empty */
 .fp-value-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .fp-count { flex: none; margin-left: auto; font-size: var(--fs-xs); color: var(--foreground-muted); font-variant-numeric: tabular-nums; }
@@ -273,22 +284,8 @@ svg.icon-sm { width: 12px; height: 12px; }
 }
 .fp-input::placeholder { color: var(--foreground-muted); }
 .fp-input:focus { outline: none; border-color: var(--foreground-input-accent); box-shadow: var(--focus-ring); }
-.fp-picker > .fp-input { flex: none; }
 .fp-dates { flex: none; display: flex; align-items: center; gap: var(--sp-2); font-size: var(--fs-sm); color: var(--foreground-secondary-muted); }
 .fp-dates .fp-input { flex: 1; min-width: 0; }
-.fp-spacer { flex: 1; }
-.fp-preview { margin-right: auto; font-size: var(--fs-xs); color: var(--foreground-secondary-muted); white-space: nowrap; }
-.fp-preview strong { font-weight: 600; color: var(--foreground); font-variant-numeric: tabular-nums; }
-.fp-picker-foot { align-items: center; }
-/* "is" / "is not": reads as text, opens as a select */
-.fp-inline-select {
-  appearance: none; -webkit-appearance: none; field-sizing: content; max-width: 100%; min-height: 28px;
-  padding: 0 22px 0 var(--sp-1-5); border: 0; border-radius: var(--radius-sm);
-  background: transparent url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'%3E%3Cpath d='M13.354 6.354l-5 5a.5.5 0 0 1-.708 0l-5-5a.5.5 0 0 1 .708-.708L8 10.293l4.646-4.647a.5.5 0 0 1 .708.708Z' fill='%23616161'/%3E%3C/svg%3E") no-repeat right 5px center / 12px;
-  font-size: var(--fs-sm); color: var(--foreground-secondary-muted); cursor: pointer;
-}
-.fp-inline-select:hover { background-color: var(--background-secondary); color: var(--foreground); }
-.fp-inline-select:focus-visible { outline: 2px solid var(--foreground-ring); outline-offset: 1px; }
 .check-row .tag { margin-left: auto; }
 .sheet-handle { display: none; }
 
@@ -342,7 +339,7 @@ svg.icon-sm { width: 12px; height: 12px; }
 
 /* Org rail — DS "Org Rail": fixed to the left edge */
 .org-rail {
-  position: fixed; top: 0; bottom: 0; left: 0; z-index: 30;
+  position: fixed; top: var(--proto-bar-h, 0px); bottom: 0; left: 0; z-index: 30;
   display: flex; flex-direction: column; width: var(--rail-w); overflow-y: auto;
   background: var(--surface-background); border-right: 1px solid var(--foreground-border);
 }
@@ -387,7 +384,7 @@ svg.icon-sm { width: 12px; height: 12px; }
 
 /* Project sidebar — DS "Project Sidebar" (04 — Collapsible): fixed beside the org rail */
 .project-sidebar {
-  position: fixed; top: 0; bottom: 0; left: var(--rail-w); z-index: 30;
+  position: fixed; top: var(--proto-bar-h, 0px); bottom: 0; left: var(--rail-w); z-index: 30;
   display: flex; flex-direction: column; width: var(--project-sidebar-w); overflow-y: auto;
   background: var(--surface-background); border-right: 1px solid var(--foreground-border);
 }
@@ -538,7 +535,7 @@ svg.icon-sm { width: 12px; height: 12px; }
   .tools { flex-wrap: wrap; }
 }
 .chips-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-1-5); min-height: 28px; min-width: 0; }
-/* Quiet, like a link: it adds to the chips it follows */
+/* Filters button: opens the filters drawer; the chips follow it */
 .add-filter { min-height: 28px; padding-inline: var(--sp-2); }
 .tools .band-end { margin-left: 0; margin-right: var(--sp-1); flex-wrap: nowrap; }
 .band-filters .btn-link { min-height: 28px; font-size: var(--fs-xs); white-space: nowrap; }
@@ -568,8 +565,8 @@ svg.icon-sm { width: 12px; height: 12px; }
    landscape) keep the page-level scroll, where a boxed table would be tiny. */
 @media (min-height: 600px) {
   .list-card {
-    height: calc(100vh - 2 * var(--page-gutter) - var(--page-head-h) - var(--metrics-h));
-    height: calc(100dvh - 2 * var(--page-gutter) - var(--page-head-h) - var(--metrics-h));
+    height: calc(100vh - var(--proto-bar-h, 0px) - 2 * var(--page-gutter) - var(--page-head-h) - var(--metrics-h));
+    height: calc(100dvh - var(--proto-bar-h, 0px) - 2 * var(--page-gutter) - var(--page-head-h) - var(--metrics-h));
     /* Grows and shrinks with the metric strip as it condenses */
     transition: height var(--metrics-dur) var(--metrics-ease);
   }
@@ -807,6 +804,15 @@ button.th-label { padding: 0; border: 0; background: none; font: inherit; color:
 }
 .cell-menu { min-width: 160px; }
 .cell-menu label.menu-item { cursor: pointer; }
+.menu-item-label { flex: 1; min-width: 0; }
+/* Long options: a wider menu, room around each option and at most two lines each (the tooltip has
+   the full text); the menu scrolls if it outgrows the screen */
+.cell-menu.has-long-options { min-width: min(420px, calc(100vw - 32px)); max-height: min(480px, calc(100vh - 32px)); overflow-y: auto; }
+.cell-menu.has-long-options .menu-item { align-items: flex-start; padding-block: var(--sp-2); line-height: 20px; }
+.cell-menu.has-long-options .menu-item + .menu-item { margin-top: 2px; }
+.cell-menu.has-long-options .menu-item-label { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; }
+.cell-menu.has-long-options .menu-check { margin-top: 2px; }
+.cell-menu.has-long-options label.menu-item .checkbox { margin-block: -2px; }
 /* Searchable cell menu: a fixed-height list scrolls between the search field and the clearing option */
 .cell-menu-search { min-width: 300px; }
 .cell-menu-search > .field { flex: none; margin-bottom: var(--sp-1); }
@@ -842,7 +848,7 @@ button.th-label { padding: 0; border: 0; background: none; font: inherit; color:
 /* Detail panel — Jira-style: a toolbar that stays put, then a scrolling body.
    Docked flush to the right edge on wide screens; slide-over drawer on narrow ones. */
 .detail {
-  position: fixed; top: 0; right: 0; bottom: 0; z-index: 50;
+  position: fixed; top: var(--proto-bar-h, 0px); right: 0; bottom: 0; z-index: 50;
   display: flex; flex-direction: column;
   width: min(var(--detail-w, 440px), 100%);
   background: var(--surface-background); border-left: 1px solid var(--foreground-border);

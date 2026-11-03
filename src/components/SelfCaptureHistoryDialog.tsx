@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { selfCaptures, type Respondent } from '../data/respondents'
+import { selfCaptures, type Respondent } from '@data/respondents'
 import { Icon } from './Icon'
 import { StatusTag } from './Tag'
 

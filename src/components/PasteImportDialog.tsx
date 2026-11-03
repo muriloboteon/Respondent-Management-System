@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ClipboardEvent } from 'react'
-import type { Respondent } from '../data/respondents'
+import type { Respondent } from '@data/respondents'
 import {
   IMPORT_FIELDS,
   checkRows,

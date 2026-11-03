@@ -1,6 +1,6 @@
 import type { ReactTable } from '@tanstack/react-table'
 import { useRef, useState, type KeyboardEvent, type PointerEvent } from 'react'
-import type { Respondent } from '../data/respondents'
+import type { Respondent } from '@data/respondents'
 import {
   canMoveColumn,
   isColumnOrderChanged,

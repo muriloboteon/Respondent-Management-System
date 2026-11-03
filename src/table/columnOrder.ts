@@ -1,5 +1,5 @@
 import type { ReactTable } from '@tanstack/react-table'
-import type { Respondent } from '../data/respondents'
+import type { Respondent } from '@data/respondents'
 import type { features } from './respondentsTable'
 
 type Table = ReactTable<typeof features, Respondent>

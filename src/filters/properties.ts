@@ -8,7 +8,7 @@ import {
   respondents,
   sourceLabel,
   type Respondent,
-} from '../data/respondents'
+} from '@data/respondents'
 
 /* ---------- Properties people can filter by ---------- */
 

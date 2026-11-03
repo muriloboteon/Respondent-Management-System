@@ -1,4 +1,4 @@
-import { TODAY, type Respondent } from '../data/respondents'
+import { TODAY, type Respondent } from '@data/respondents'
 import { NOT_SET, choicesFor, getProperty, type PropType, type PropertyDef } from './properties'
 
 /* ---------- Model: one chip per property, every chip must hold (AND) ---------- */
@@ -163,7 +163,7 @@ export function formatDate(iso: string) {
 }
 
 /**
- * "Role: Main", "Age: 18-31, 32-44 +1", "Favorite: Yes": `op` is empty for "is". Everything else
+ * "Role: Main", "Respondent Age: 25–34, 35–44 +1", "Favorite: Yes": `op` is empty for "is". Everything else
  * reads it out: "Role is not Backup", "Email contains “gmail”", "Added on in the last 30 days".
  */
 export function summarize(c: Condition): ChipSummary {
@@ -192,7 +192,7 @@ export const VIEWS: Record<ViewId, { label: string; conditions: Condition[] }> =
   all: { label: 'All respondents', conditions: [] },
   attention: { label: 'Saved view 1', conditions: [newCondition('consent', ['Not signed'])] },
   live: { label: 'Saved view 2', conditions: [newCondition('live', ['Completed'])] },
-  uk: { label: 'Saved view 3', conditions: [newCondition('area', ['urban'])] },
+  uk: { label: 'Saved view 3', conditions: [newCondition('environment', ['Urban'])] },
 }
 
 /** A fresh copy of a view's filters, so edits never touch the saved view. */

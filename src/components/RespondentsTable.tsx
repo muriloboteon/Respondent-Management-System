@@ -1,6 +1,6 @@
 import type { ReactTable } from '@tanstack/react-table'
 import { useLayoutEffect, useRef, useState, type CSSProperties, type FocusEvent, type KeyboardEvent, type MouseEvent, type PointerEvent, type UIEvent } from 'react'
-import type { Respondent } from '../data/respondents'
+import type { Respondent } from '@data/respondents'
 import type { OrderColumn } from '../table/columnOrder'
 import type { features } from '../table/respondentsTable'
 import { Checkbox } from './Checkbox'

@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { tone } from '../data/respondents'
+import { tone } from '@data/respondents'
 
 type Variant = 'default' | 'outline' | 'feature' | 'warn' | 'more'
 

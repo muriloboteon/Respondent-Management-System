@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
-import { SEGMENTS, limitPII, techCheckResult, type Respondent } from '../data/respondents'
+import { SEGMENTS, limitPII, techCheckResult, type Respondent } from '@data/respondents'
 import { Icon } from './Icon'
 import { Tag } from './Tag'
 

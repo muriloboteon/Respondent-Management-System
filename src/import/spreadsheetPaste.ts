@@ -1,4 +1,4 @@
-import { M, SEGMENTS, TODAY, enrichRespondent, type Respondent, type SegmentDef, type SegmentKey, type SegmentValues } from '../data/respondents'
+import { M, SEGMENTS, TODAY, enrichRespondent, type Respondent, type SegmentDef, type SegmentKey, type SegmentValues } from '@data/respondents'
 
 /*
  * Pasting rows copied from Excel / Google Sheets.
@@ -76,12 +76,19 @@ const HEADER_ALIASES: Record<ImportField, string[]> = {
   lastName: ['last name', 'surname', 'family name', 'last', 'sobrenome', 'ultimo nome'],
   email: ['email', 'e mail', 'email address', 'e mail address', 'mail', 'endereco de email'],
   phone: ['phone', 'phone number', 'telephone', 'tel', 'mobile', 'mobile phone', 'cell', 'cell phone', 'telefone', 'celular', 'whatsapp'],
-  age: ['age', 'age group', 'age range', 'idade', 'faixa etaria'],
-  area: ['area', 'area type', 'location type', 'urbanicity', 'tipo de area'],
   gender: ['gender', 'sex', 'genero', 'sexo'],
-  household: ['household', 'household type', 'living situation', 'domicilio', 'composicao familiar'],
-  motivation: ['motivation', 'motivation type', 'shopper motivation', 'motivacao', 'tipo de motivacao'],
-  usage: ['user frequency', 'usage frequency', 'usage', 'frequencia de uso'],
+  country: ['country', 'country of residence', 'pais'],
+  income: ['social economic level sel income type', 'social economic level', 'sel', 'income', 'income type', 'income level', 'nivel socioeconomico', 'renda'],
+  age: ['respondent age', 'age', 'age group', 'age range', 'idade', 'faixa etaria'],
+  ethnicity: ['ethnicity', 'race', 'race ethnicity', 'etnia', 'raca'],
+  education: ['education', 'education level', 'escolaridade'],
+  environment: ['environment', 'area', 'area type', 'location type', 'urbanicity', 'tipo de area'],
+  employment: ['employment', 'employment status', 'occupation', 'ocupacao', 'situacao profissional'],
+  recency: ['consumption recency', 'recency', 'last consumption', 'recencia de consumo'],
+  channel: ['purchase channel', 'purchase channels', 'channel', 'canal de compra'],
+  household: ['household situation', 'household', 'household type', 'living situation', 'domicilio', 'composicao familiar'],
+  zone: ['zone', 'region', 'zona', 'regiao'],
+  reason: ['main reason for choosing their usual beverage brand when shopping in a physical store', 'brand choice reason', 'main reason', 'motivo de escolha da marca'],
 }
 
 function fieldForHeader(header: string): ImportField | null {

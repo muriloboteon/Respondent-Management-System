@@ -1,7 +1,7 @@
 import type { ReactTable } from '@tanstack/react-table'
 import { useEffect, useRef, useState, type PointerEvent, type RefObject } from 'react'
 import { createPortal } from 'react-dom'
-import type { Respondent } from '../data/respondents'
+import type { Respondent } from '@data/respondents'
 import { canMoveColumn, moveColumn, sameZone, type OrderColumn } from '../table/columnOrder'
 import type { features } from '../table/respondentsTable'
 import { Icon } from './Icon'

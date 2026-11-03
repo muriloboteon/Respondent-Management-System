@@ -233,7 +233,10 @@ export function EditableText({
   )
 }
 
-/** One choice only: a search field above the options, for long lists. */
+/** Options longer than this make the menu wider, with each option on up to two lines. */
+const LONG_OPTION = 40
+
+/** A search field above the options, for long lists; the options then scroll in a fixed-height list. */
 export interface OptionSearch {
   /** Placeholder and accessible name, e.g. "Search timezones". */
   label: string
@@ -340,7 +343,7 @@ function OptionsMenu({
     if (search) {
       // Focus stays in the search field; the current choice is scrolled to the middle of the list.
       input.current!.focus({ preventScroll: true })
-      const current = !start.query && list.current!.querySelector<HTMLElement>('[aria-checked="true"]')
+      const current = !start.query && list.current!.querySelector<HTMLElement>('[aria-checked="true"], .menu-item:has(input:checked)')
       if (current) list.current!.scrollTop = current.offsetTop - (list.current!.clientHeight - current.offsetHeight) / 2
       return
     }
@@ -356,6 +359,9 @@ function OptionsMenu({
     if (!checked) onCommit(next)
     onClose(true)
   }
+  // With `multi`, each toggle saves and the menu stays open.
+  const toggle = (opt: string) =>
+    onCommit(value.includes(opt) ? value.filter((v) => v !== opt) : options.filter((o) => o === opt || value.includes(o)))
 
   const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
     const inSearch = e.target === input.current
@@ -367,7 +373,8 @@ function OptionsMenu({
     if (inSearch && e.key === 'Enter') {
       e.preventDefault()
       const first = shown[0]
-      if (first) pick([first], value[0] === first)
+      if (first && multi) toggle(first)
+      else if (first) pick([first], value[0] === first)
       return
     }
     if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return
@@ -377,17 +384,38 @@ function OptionsMenu({
     items[(i + (e.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length]?.focus()
   }
 
+  const searchField = search && (
+    <label className="field field-sm">
+      <Icon name="search" />
+      <span className="sr-only">{search.label}</span>
+      <input ref={input} type="search" placeholder={search.label} value={query} onChange={(e) => setQuery(e.target.value)} />
+    </label>
+  )
+  const noMatches = <p className="menu-empty">No matches for “{query.trim()}”</p>
+  // Long options get a wider menu, room around each one and at most two lines (the tooltip has the rest).
+  const long = options.some((o) => o.length > LONG_OPTION)
+  const menuClass = ['menu', 'cell-menu', search && 'cell-menu-search', long && 'has-long-options'].filter(Boolean).join(' ')
+  const optionText = (text: string) => <span className="menu-item-label" title={long ? text : undefined}>{text}</span>
+
   if (multi) {
-    const toggle = (opt: string) =>
-      onCommit(value.includes(opt) ? value.filter((v) => v !== opt) : options.filter((o) => o === opt || value.includes(o)))
+    const checks = shown.map((opt) => (
+      <label key={opt} className="menu-item">
+        <Checkbox checked={value.includes(opt)} onChange={() => toggle(opt)} />
+        {optionText(opt)}
+      </label>
+    ))
     return (
-      <div ref={ref} className="menu cell-menu" role="dialog" aria-label={label} onKeyDown={onKeyDown}>
-        {options.map((opt) => (
-          <label key={opt} className="menu-item">
-            <Checkbox checked={value.includes(opt)} onChange={() => toggle(opt)} />
-            {opt}
-          </label>
-        ))}
+      <div ref={ref} className={menuClass} role="dialog" aria-label={label} onKeyDown={onKeyDown}>
+        {search ? (
+          <>
+            {searchField}
+            <div ref={list} className="cell-menu-list" role="group" aria-label={label}>
+              {checks.length ? checks : noMatches}
+            </div>
+          </>
+        ) : (
+          checks
+        )}
       </div>
     )
   }
@@ -408,7 +436,7 @@ function OptionsMenu({
           <span className="menu-item-desc">{desc}</span>
         </span>
       ) : (
-        text
+        optionText(text)
       )}
       <span className="menu-check">{checked && <Icon name="check" />}</span>
     </button>
@@ -425,14 +453,10 @@ function OptionsMenu({
   if (search) {
     // The list scrolls between the search field and the clearing option, so both stay in reach.
     return (
-      <div ref={ref} className="menu cell-menu cell-menu-search" role="dialog" aria-label={label} onKeyDown={onKeyDown}>
-        <label className="field field-sm">
-          <Icon name="search" />
-          <span className="sr-only">{search.label}</span>
-          <input ref={input} type="search" placeholder={search.label} value={query} onChange={(e) => setQuery(e.target.value)} />
-        </label>
+      <div ref={ref} className={menuClass} role="dialog" aria-label={label} onKeyDown={onKeyDown}>
+        {searchField}
         <div ref={list} className="cell-menu-list" role="menu" aria-label={label}>
-          {optionList.length ? optionList : <p className="menu-empty">No matches for “{query.trim()}”</p>}
+          {optionList.length ? optionList : noMatches}
         </div>
         {clear}
       </div>
@@ -440,7 +464,7 @@ function OptionsMenu({
   }
 
   return (
-    <div ref={ref} className="menu cell-menu" role="menu" aria-label={label} onKeyDown={onKeyDown}>
+    <div ref={ref} className={menuClass} role="menu" aria-label={label} onKeyDown={onKeyDown}>
       {optionList}
       {clear}
     </div>
