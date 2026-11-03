@@ -93,7 +93,7 @@ export function ListHeader({ table, total, filters, onFiltersChange, view, onVie
 
   return (
     // Two bands split by full-width dividers: saved views (hidden for now), and the filters band, one row:
-    // the filter chips and "+ Add filter" on the left; the result count, search and Columns on the right.
+    // the search, the filter chips and "+ Add filter" on the left; the result count and Columns on the right.
     // While rows are picked, bulk actions take the place of the filters. The import notice joins as an extra band.
     // The page title sits above the card.
     <div className="list-head">
@@ -113,6 +113,32 @@ export function ListHeader({ table, total, filters, onFiltersChange, view, onVie
         {pickedCount > 0 ? `${pickedCount} selected` : hasFilters ? `${fmt(resultCount)} of ${fmt(total)} respondents match` : ''}
       </span>
       <div className="head-band band-filters">
+        <label className="field field-sm search">
+          <Icon name="search" />
+          <span className="sr-only">Search respondents</span>
+          <input
+            ref={searchInput}
+            type="search"
+            placeholder="Search respondents"
+            title="Search by name, email or ID. Separate several with commas."
+            value={filters.query}
+            onChange={(e) => onFiltersChange({ query: e.target.value })}
+          />
+          {/* Our own clear button: not every browser shows one in a search field */}
+          {filters.query && (
+            <button
+              type="button"
+              className="search-clear"
+              aria-label="Clear search"
+              onClick={() => {
+                onFiltersChange({ query: '' })
+                searchInput.current?.focus()
+              }}
+            >
+              <Icon name="x" small />
+            </button>
+          )}
+        </label>
         {pickedCount > 0 ? (
           <BulkActions count={pickedCount} onClear={() => table.resetRowSelection(true)} onRemove={onRemovePicked} />
         ) : (
@@ -177,33 +203,6 @@ export function ListHeader({ table, total, filters, onFiltersChange, view, onVie
               </span>
             </span>
           )}
-          <label className="field field-sm search">
-            <Icon name="search" />
-            <span className="sr-only">Search respondents</span>
-            <input
-              ref={searchInput}
-              type="search"
-              placeholder="Search respondents"
-              title="Search by name, email or ID. Separate several with commas."
-              value={filters.query}
-              onChange={(e) => onFiltersChange({ query: e.target.value })}
-            />
-            {/* Our own clear button: not every browser shows one in a search field */}
-            {filters.query && (
-              <button
-                type="button"
-                className="search-clear"
-                aria-label="Clear search"
-                onClick={() => {
-                  onFiltersChange({ query: '' })
-                  searchInput.current?.focus()
-                }}
-              >
-                <Icon name="x" small />
-              </button>
-            )}
-          </label>
-
           <div className="pop-wrap">
             <button
               ref={colsBtn}

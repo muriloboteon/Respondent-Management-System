@@ -517,14 +517,14 @@ svg.icon-sm { width: 12px; height: 12px; }
 .title-group { display: flex; align-items: center; gap: var(--sp-2); }
 .page-actions { display: flex; align-items: center; gap: var(--sp-2); }
 .title-group h1 { margin: 0; font-size: var(--fs-xl); line-height: 28px; font-weight: 600; color: var(--foreground-primary); letter-spacing: -0.2px; }
-/* Applied filters sit on the left of the filters band and the tools on the right, with the
-   search shrinking first; the band only wraps once the card itself is too narrow
+/* The search and the applied filters sit on the left of the filters band and the tools on the right,
+   with the search shrinking first; the band only wraps once the card itself is too narrow
    (the detail panel also takes width on wide screens) */
 .list-head { container: list-head / inline-size; }
 .band-tools .tabs { flex: none; }
 .tools { flex: 0 1 auto; min-width: 0; display: flex; flex-wrap: nowrap; align-items: center; justify-content: flex-end; gap: var(--sp-2); margin-left: auto; }
 .band-end + .tools { margin-left: 0; }
-.tools .search { flex: 0 1 320px; min-width: 160px; max-width: 100%; }
+.band-filters .search { flex: 0 1 280px; min-width: 160px; max-width: 100%; }
 /* The search field's own clear button replaces the browser's (which only some browsers show) */
 .search input::-webkit-search-cancel-button { display: none; }
 .search-clear {
@@ -581,9 +581,10 @@ svg.icon-sm { width: 12px; height: 12px; }
 }
 .tbl { font-size: var(--fs-sm); }
 .tr { display: grid; grid-template-columns: var(--grid-cols); align-items: stretch; border-bottom: 1px solid var(--foreground-border); --row-bg: var(--surface-background); background: var(--row-bg); }
-.tbody .tr:hover { --row-bg: var(--background-accent-soft); }
-.tbody .tr.is-selected { --row-bg: var(--background-accent-selected); }
-.tbody .tr.is-picked:not(.is-selected) { --row-bg: var(--orchid-50); }
+/* Hover, the checked row and the row open in Respondent details share one fill */
+.tbody .tr:hover,
+.tbody .tr.is-selected,
+.tbody .tr.is-picked { --row-bg: var(--background-accent-soft); }
 .thead { --row-bg: var(--background-secondary); min-height: 44px; }
 .th {
   position: relative; min-width: 0;
@@ -679,6 +680,23 @@ button.th-label { padding: 0; border: 0; background: none; font: inherit; color:
 .resize-handle:focus-visible { outline: none; }
 .resize-handle:focus-visible::after { top: 0; bottom: 0; background: var(--foreground-ring); box-shadow: var(--focus-ring); }
 .tbl.is-resizing, .tbl.is-resizing * { cursor: col-resize !important; user-select: none; }
+/* Moving a column by dragging its header: the column swaps places as the pointer passes its
+   neighbours, its header faded where it now sits and marked by a colored line in the header row;
+   a small label with the column name is held under the pointer (like AG Grid's drag label).
+   Header text isn't selectable, so a drag never selects it. */
+.th { user-select: none; }
+.th.is-col-dragged { opacity: .45; }
+.tbl.is-moving-col, .tbl.is-moving-col *, body:has(.col-drag-ghost) { cursor: grabbing !important; }
+.col-drag-ghost {
+  position: fixed; z-index: 80; display: inline-flex; align-items: center; gap: var(--sp-1);
+  max-width: 220px; height: 28px; padding: 0 var(--sp-2-5) 0 var(--sp-1-5);
+  border: 1px solid var(--foreground-border); border-radius: var(--radius-sm);
+  background: var(--surface-background); box-shadow: var(--shadow-md); pointer-events: none;
+  font-size: var(--fs-xs); font-weight: 500; line-height: 16px; color: var(--foreground); white-space: nowrap;
+}
+.col-drag-ghost .icon { flex: none; color: var(--foreground-muted); }
+.col-drag-ghost-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.col-drop-line { position: fixed; z-index: 79; display: none; width: 3px; border-radius: var(--radius-full); background: var(--foreground-accent); pointer-events: none; }
 @media (pointer: coarse) {
   .resize-handle { right: -10px; width: 20px; }
   .resize-handle::after { left: 9px; background: var(--foreground-input-muted); }
@@ -945,11 +963,11 @@ body.is-resizing { cursor: col-resize; user-select: none; }
 
 @media (max-width: 900px) {
   .tools { width: 100%; }
-  .tools .search { flex: 1 1 220px; width: auto; }
+  .band-filters .search { flex: 1 1 220px; width: auto; }
 }
 
 @media (max-width: 640px) {
-  .tools .search { flex-basis: 100%; }
+  .band-filters .search { flex-basis: 100%; }
   .tools .pop-wrap, .tools > .btn { flex: 1 1 0; }
   .tools .pop-wrap > .btn { width: 100%; }
   .band-tools { flex-direction: column; align-items: stretch; }

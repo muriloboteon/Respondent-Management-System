@@ -1,11 +1,13 @@
 import type { ReactTable } from '@tanstack/react-table'
-import { useLayoutEffect, useRef, useState, type CSSProperties, type FocusEvent, type KeyboardEvent, type MouseEvent, type UIEvent } from 'react'
+import { useLayoutEffect, useRef, useState, type CSSProperties, type FocusEvent, type KeyboardEvent, type MouseEvent, type PointerEvent, type UIEvent } from 'react'
 import type { Respondent } from '../data/respondents'
+import type { OrderColumn } from '../table/columnOrder'
 import type { features } from '../table/respondentsTable'
 import { Checkbox } from './Checkbox'
 import { CELL_PEEK, CELL_START, cellFrom, cellMove, startsEdit } from './gridCells'
 import { Icon } from './Icon'
 import { IconLabel, TruncatedText } from './Tooltip'
+import { isHeaderDragClick, useHeaderDrag } from './useHeaderDrag'
 
 type Table = ReactTable<typeof features, Respondent>
 type Header = ReturnType<Table['getHeaderGroups']>[number]['headers'][number]
@@ -124,26 +126,36 @@ function SortIcon({ sorted }: { sorted: false | 'asc' | 'desc' }) {
 }
 
 /**
- * One header cell: sorting, the column menu and resizing. Works like the MUI X Data Grid:
- * a click anywhere on the header sorts (ascending, descending, then unsorted).
+ * One header cell: sorting, the column menu, resizing and moving. Works like the MUI X Data Grid:
+ * a click anywhere on the header sorts (ascending, descending, then unsorted), and dragging it
+ * moves the column (see useHeaderDrag).
  */
-function HeaderCell({ table, header, sticky }: { table: Table; header: Header; sticky?: StickyPos }) {
+function HeaderCell({ table, header, sticky, dragged, onDragStart }: {
+  table: Table
+  header: Header
+  sticky?: StickyPos
+  /** This column is being dragged to a new place. */
+  dragged: boolean
+  onDragStart: (e: PointerEvent<HTMLElement>, column: OrderColumn) => void
+}) {
   const meta = table.options.meta!
   const column = header.column
   const colMeta = column.columnDef.meta!
   const sorted = column.getIsSorted()
   const canSort = column.getCanSort()
   const isRowHeader = column.id === ROW_HEADER_ID
-  const base = ['th', colMeta.icon && 'th-icon-col', canSort && 'th-sortable', sorted && 'th-sorted'].filter(Boolean).join(' ')
+  const base = ['th', colMeta.icon && 'th-icon-col', canSort && 'th-sortable', sorted && 'th-sorted', dragged && 'is-col-dragged'].filter(Boolean).join(' ')
   const cellProps = {
     role: 'columnheader',
     'aria-sort': canSort ? ariaSort(sorted) : undefined,
+    'data-col': column.id,
+    onPointerDown: (e: PointerEvent<HTMLElement>) => onDragStart(e, column),
     ...stickyProps(base, sticky, isRowHeader),
     onClick: canSort
       ? (e: MouseEvent<HTMLElement>) => {
           // The select-all checkbox, the menu button and the resize handle do their own thing,
-          // and the end of a resize drag isn't a click on the header.
-          if (resizePress || (e.target as Element).closest('.checkbox, .icon-btn, .resize-handle')) return
+          // and the end of a resize or move drag isn't a click on the header.
+          if (resizePress || isHeaderDragClick() || (e.target as Element).closest('.checkbox, .icon-btn, .resize-handle')) return
           // The third click removes the sort. The hover preview (the next direction, ascending)
           // stays hidden until the pointer or focus leaves, or the arrow would look like a sort.
           if (sorted === 'desc') e.currentTarget.dataset.unsorted = ''
@@ -334,11 +346,14 @@ export function RespondentsTable({
     return pos ? Math.max(w, pos.left + h.column.getSize()) : w
   }, 0)
 
+  const { draggingId, onHeaderPointerDown, overlay } = useHeaderDrag(table, scrollRef, pinnedWidth)
+
   return (
     <div ref={scrollRef} className="table-scroll" style={{ scrollPaddingLeft: pinnedWidth }} onScroll={onScroll}>
+      {overlay}
       <div
         role="grid"
-        className={['tbl', isResizing && 'is-resizing', scrolledX && 'is-scrolled-x'].filter(Boolean).join(' ')}
+        className={['tbl', isResizing && 'is-resizing', scrolledX && 'is-scrolled-x', draggingId && 'is-moving-col'].filter(Boolean).join(' ')}
         aria-labelledby="list-h"
         style={tableStyle}
       >
@@ -346,7 +361,14 @@ export function RespondentsTable({
           {/* Columns are not grouped, so there is a single header row. */}
           <div role="row" className="tr thead">
             {headers.map((header) => (
-              <HeaderCell key={header.id} table={table} header={header} sticky={sticky.get(header.column.id)} />
+              <HeaderCell
+                key={header.id}
+                table={table}
+                header={header}
+                sticky={sticky.get(header.column.id)}
+                dragged={draggingId === header.column.id}
+                onDragStart={onHeaderPointerDown}
+              />
             ))}
           </div>
         </div>
