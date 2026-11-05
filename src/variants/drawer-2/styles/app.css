@@ -176,6 +176,12 @@ svg.icon-sm { width: 12px; height: 12px; }
 .chip .more { flex: none; font-weight: 600; color: var(--foreground-accent-soft); }
 .chip button { display: inline-flex; flex: none; align-items: center; justify-content: center; width: 24px; height: 24px; margin-left: calc(var(--sp-1) * -1); padding: 0; border: 0; border-radius: var(--radius-xs); background: none; color: var(--foreground-accent-soft); }
 .chip button:hover { background: var(--orchid-200); }
+/* What the AI couldn't use from the last description: dashed and unfilled, so it doesn't read as a filter */
+.chip.chip-note { gap: var(--sp-1); padding-left: var(--sp-2); border: 1px dashed var(--orchid-300); background: transparent; cursor: default; }
+.chip-note-icon { display: inline-flex; flex: none; color: var(--foreground-accent); }
+.chip.chip-note .v { font-weight: 500; color: var(--foreground-secondary-muted); }
+.chip.chip-note button { color: var(--foreground-secondary-muted); }
+.chip.chip-note button:hover { background: var(--orchid-100); color: var(--foreground-accent-soft); }
 /* The chip text opens its values */
 .chip .chip-body { display: inline-flex; flex: 0 1 auto; align-items: center; gap: var(--sp-1); min-width: 0; width: auto; height: auto; margin: 0; padding: 0; font-size: inherit; text-align: left; color: inherit; }
 .chip .chip-body:hover { background: none; }
@@ -607,6 +613,16 @@ svg.icon-sm { width: 12px; height: 12px; }
   font-size: var(--fs-xs); line-height: 16px; font-weight: 600; color: var(--foreground-secondary-muted);
 }
 .ai-suggest-head .icon { color: var(--foreground-accent); }
+.ai-options { display: flex; flex-direction: column; }
+/* No filters found: what happened, then examples and "Open filters" under a divider */
+.ai-fail { display: flex; align-items: flex-start; gap: var(--sp-2); padding: var(--sp-2) var(--sp-2-5) var(--sp-1-5); }
+.ai-fail-icon { display: inline-flex; flex: none; margin-top: 2px; color: var(--foreground-accent); }
+.ai-fail-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; font-size: var(--fs-xs); line-height: 16px; color: var(--foreground-secondary-muted); }
+.ai-fail-text strong { font-size: var(--fs-sm); line-height: 20px; font-weight: 600; color: var(--foreground); overflow-wrap: anywhere; }
+.ai-fail-text q { quotes: '“' '”'; }
+.ai-action { margin-top: var(--sp-1); border-top: 1px solid var(--foreground-border); border-radius: 0 0 var(--radius-sm) var(--radius-sm); min-height: 36px; color: var(--foreground); }
+.ai-action .icon { color: var(--foreground-secondary-muted); }
+.ai-action .ai-example-text { color: inherit; }
 .ai-option { cursor: pointer; }
 .ai-option[aria-selected="true"] { background: var(--background-accent-soft); }
 .ai-example { min-height: 32px; }
@@ -971,6 +987,8 @@ button.th-label { padding: 0; border: 0; background: none; font: inherit; color:
   display: flex; flex-direction: column;
   width: min(var(--detail-w, 440px), 100%);
   background: var(--surface-background); border-left: 1px solid var(--foreground-border);
+  /* Field rows switch layout by the panel's own width (see "Details" below) */
+  container: detail / inline-size;
 }
 .detail-resize { position: absolute; top: 0; bottom: 0; left: -4px; z-index: 2; width: 8px; cursor: col-resize; touch-action: none; }
 .detail-resize::after { content: ""; position: absolute; top: 0; bottom: 0; left: 3px; width: 2px; background: transparent; transition: background-color .12s ease; }
@@ -995,8 +1013,6 @@ body.is-resizing { cursor: col-resize; user-select: none; }
 .detail-head { display: flex; flex-direction: column; align-items: flex-start; gap: var(--sp-2); padding: var(--sp-4) var(--sp-5) 0; }
 .crumbs { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-1-5); font-size: var(--fs-xs); line-height: 16px; color: var(--foreground-secondary-muted); }
 .crumbs strong { font-weight: 600; color: var(--foreground); }
-.detail-title { display: flex; align-items: center; gap: var(--sp-3); min-width: 0; }
-.detail-title .avatar { width: 36px; height: 36px; font-size: var(--fs-xs); }
 .detail h2 { margin: 0; font-size: var(--fs-2xl); line-height: 32px; font-weight: 600; color: var(--foreground-primary); letter-spacing: -0.3px; overflow-wrap: anywhere; }
 .detail-head > .tag { white-space: normal; }
 .detail-actions { display: flex; flex-wrap: wrap; gap: var(--sp-2); padding-top: var(--sp-1); }
@@ -1036,11 +1052,19 @@ body.is-resizing { cursor: col-resize; user-select: none; }
 /* Details: label / value rows; segment values show a pencil on hover */
 .field-grid { display: flex; flex-direction: column; margin: 0; }
 .field-row { display: grid; grid-template-columns: 128px minmax(0, 1fr); align-items: center; gap: var(--sp-3); min-height: 36px; }
-.field-row dt { color: var(--foreground-secondary-muted); }
+/* Long labels stop at two lines; the full name is the tooltip */
+.field-row dt { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; color: var(--foreground-secondary-muted); }
 .field-row dd { position: relative; display: flex; align-items: center; gap: var(--sp-1); min-width: 0; min-height: 32px; margin: 0 0 0 calc(var(--sp-1-5) * -1); padding: 0 36px 0 var(--sp-1-5); border-radius: var(--radius-sm); overflow-wrap: anywhere; }
 .field-row.editable dd:hover { background: var(--background-secondary); }
 .field-edit { position: absolute; right: 2px; top: 50%; width: 28px; height: 28px; transform: translateY(-50%); opacity: 0; }
 .field-row.editable dd:hover .field-edit, .field-edit:focus-visible { opacity: 1; }
+/* Narrow panel: the label sits above its value, so the value gets the full width.
+   Label beside value only once the panel is wide enough (520px and up). */
+@container detail (max-width: 519.98px) {
+  .field-row { display: flex; flex-direction: column; align-items: stretch; gap: 0; min-height: 0; padding: var(--sp-1) 0; }
+  .field-row dt { font-size: var(--fs-xs); line-height: 16px; }
+  .field-row dd { min-height: 28px; }
+}
 .field-note { display: inline-flex; align-items: flex-start; gap: var(--sp-1-5); font-size: var(--fs-xs); line-height: 16px; color: var(--foreground-secondary-muted); }
 .field-note .icon { margin-top: 2px; }
 .btn-add { display: inline-flex; align-items: center; gap: var(--sp-1); min-height: 32px; margin-top: var(--sp-1); margin-left: calc(var(--sp-1-5) * -1); padding: 0 var(--sp-1-5); border: 0; border-radius: var(--radius-sm); background: none; color: var(--foreground-accent); font-weight: 500; }
@@ -1114,7 +1138,6 @@ body.is-resizing { cursor: col-resize; user-select: none; }
   .panel-open .scrim-sheet { display: block; position: fixed; inset: 0; z-index: 55; background: var(--overlay); }
   .detail-bar { padding-left: var(--sp-4); }
   .detail-head, .detail-body { padding-left: var(--sp-4); padding-right: var(--sp-4); }
-  .field-row { grid-template-columns: 104px minmax(0, 1fr); }
 }
 .scrim-sheet { display: none; }
 
@@ -1288,6 +1311,14 @@ body.is-resizing { cursor: col-resize; user-select: none; }
    bar as the filters drawer. Views: switching keeps the panel open; saving (always as a new view)
    and managing in the Manage views modal. */
 .views-body { display: flex; flex-direction: column; gap: var(--sp-1); padding: var(--sp-2); }
+/* Prototype note for parts still in discovery */
+.wip-note {
+  display: flex; align-items: flex-start; gap: var(--sp-2); margin-bottom: var(--sp-1); padding: var(--sp-2) var(--sp-2-5);
+  border: 1px solid var(--warning-soft-border); border-radius: var(--radius-md);
+  background: var(--warning-soft); color: var(--warning-soft-fg); font-size: var(--fs-xs); line-height: 16px;
+}
+.wip-note .icon { flex: none; margin-top: 1px; color: var(--dandelion-500); }
+.wip-note strong { font-weight: 600; }
 .cols-body { display: flex; flex-direction: column; gap: var(--sp-2); padding: var(--sp-3) var(--sp-4); }
 .cols-head { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); min-height: 24px; }
 .cols-hint { margin: 0; font-size: var(--fs-xs); line-height: 16px; color: var(--foreground-secondary-muted); }

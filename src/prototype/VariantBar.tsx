@@ -1,4 +1,4 @@
-import { VARIANTS, variantHref } from './variants'
+import { VARIANTS, VARIANTS_COMPARE, variantHref } from './variants'
 import './variantBar.css'
 
 /**
@@ -9,6 +9,7 @@ export function VariantBar({ current }: { current: string }) {
   return (
     <nav className="proto-bar" aria-label="Prototype variants">
       <span className="proto-bar-label">Prototype</span>
+      <span className="proto-bar-compare">{VARIANTS_COMPARE}:</span>
       <span className="proto-bar-tabs">
         {VARIANTS.map((v) => (
           <a

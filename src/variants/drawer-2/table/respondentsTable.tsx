@@ -49,8 +49,8 @@ export interface RespondentColumnMeta {
   pii?: boolean
 }
 
-/** The open menu: a row's actions, a column's options, or a cell's "Filter by" (row id plus column id). */
-export type MenuState = { type: 'row' | 'col'; id: string } | { type: 'cell'; id: string; col: string } | null
+/** The open menu: a row's actions or a column's options. */
+export type MenuState = { type: 'row' | 'col'; id: string } | null
 
 /** What a respondent's row can open in a dialog: the self captures list, or the tech check. */
 export type RecordingKind = 'self' | 'tech'
@@ -69,8 +69,6 @@ export interface RespondentTableMeta {
   onRenameStarted: () => void
   onOpen: (id: string) => void
   onToggleMenu: (menu: NonNullable<MenuState>) => void
-  /** Right-click on a cell: opens its "Filter by" menu; false when the cell has nothing to filter by. */
-  onCellMenu: (rowId: string, columnId: string) => boolean
   /** Saves an inline cell edit. */
   onUpdate: (id: string, patch: Partial<Respondent>) => void
   /** Opens a respondent's self captures list or tech check dialog. */

@@ -71,6 +71,11 @@ export function ViewsPanel({ views }: { views: SavedViewsApi }) {
 
   return (
     <div ref={ref} className="views-body">
+      {/* Prototype note: the scope of views is still open. */}
+      <div className="wip-note" role="note">
+        <Icon name="warningCircleFill" small />
+        <strong>Work in progress, needs discovery.</strong>
+      </div>
       <ul className="view-list" aria-label="Default view">{item(null, DEFAULT_VIEW_NAME)}</ul>
       {views.myViews.length > 0 && (
         <section className="view-section" aria-labelledby="views-mine">

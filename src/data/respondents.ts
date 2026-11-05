@@ -83,6 +83,8 @@ export type SegmentValues = Partial<Record<SegmentKey, string[]>>
 export interface SegmentDef {
   key: SegmentKey
   label: string
+  /** Optional short name for tight spots (e.g. the detail panel); the full label stays the tooltip. */
+  shortLabel?: string
   type: 'Demographic' | 'Behavioral'
   options: readonly string[]
   /** Respondents can be in more than one of the segment's values. */
@@ -106,7 +108,7 @@ export const SEGMENTS: readonly SegmentDef[] = [
     ],
     size: 220,
   },
-  { key: 'income', label: 'Social Economic Level (SEL) / Income Type', type: 'Demographic', options: ['Low income', 'Medium income', 'High income'], size: 300 },
+  { key: 'income', label: 'Social Economic Level (SEL) / Income Type', shortLabel: 'Income (SEL)', type: 'Demographic', options: ['Low income', 'Medium income', 'High income'], size: 300 },
   { key: 'age', label: 'Respondent Age', type: 'Demographic', options: ['LDA–24', '25–34', '35–44', '45–54', '55+'], size: 150 },
   {
     key: 'ethnicity',

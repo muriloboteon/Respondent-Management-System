@@ -556,25 +556,31 @@ export function applyInterpretation(current: Condition[], i: Interpretation): Co
 
 export const changesSomething = (i: Interpretation) => i.conditions.length > 0 || i.remove.length > 0 || i.clearAll
 
-/** The toast: what changed (or that nothing could), then what it couldn't do. */
-export function describeInterpretation(i: Interpretation): string {
-  const n = i.conditions.length
-  const parts: string[] = []
-  if (!changesSomething(i)) {
-    parts.push(
-      i.ambiguous.length
-        ? 'No filters applied'
-        : 'Couldn’t turn this into filters. Try naming a value, like a country, an age or “consent not signed”',
-    )
-    if (i.ambiguous.length) parts.push(`“${i.ambiguous.join('”, “')}”: say self captures or tech check`)
-    return parts.join(' · ')
+/** One part of a description that the AI couldn't use, shown as a note chip next to the filters. */
+export interface AiNote {
+  id: string
+  /** Short text on the chip. */
+  text: string
+  /** Fuller explanation for the tooltip. */
+  detail: string
+}
+
+let noteSeq = 0
+
+/**
+ * What the AI couldn't use when it applied some filters: words it didn't understand, words that
+ * fit more than one property, and "or" between properties. Each becomes a note chip.
+ */
+export function interpretationNotes(i: Interpretation): AiNote[] {
+  const notes: Array<Omit<AiNote, 'id'>> = []
+  for (const words of i.unmatched) {
+    notes.push({ text: `Not understood: ${words}`, detail: `“${words}” didn’t match any property or value, so it was left out.` })
   }
-  if (n) parts.push(`Applied ${n} filter${n === 1 ? '' : 's'} with AI`)
-  if (i.clearAll && !n) parts.push('Cleared the filters')
-  if (i.remove.length) parts.push(`removed ${i.remove.map((p) => getProperty(p).label).join(', ')}`)
-  if (i.orAcross) parts.push('“or” between different properties isn’t supported, so all of them must match')
-  if (i.ambiguous.length) parts.push(`“${i.ambiguous.join('”, “')}”: say self captures or tech check`)
-  if (i.unmatched.length) parts.push(`couldn’t match “${i.unmatched.join('”, “')}”`)
-  const text = parts.join(' · ')
-  return text.charAt(0).toUpperCase() + text.slice(1)
+  for (const words of i.ambiguous) {
+    notes.push({ text: `Unclear: ${words}`, detail: `“${words}” could mean self captures or tech check. Say which one, e.g. “self captures ${words}”.` })
+  }
+  if (i.orAcross) {
+    notes.push({ text: '“or” not applied', detail: 'Filters on different properties can’t be combined with “or”, so respondents must match all of them.' })
+  }
+  return notes.map((n) => ({ ...n, id: `note${++noteSeq}` }))
 }

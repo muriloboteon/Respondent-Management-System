@@ -33,16 +33,14 @@ import { TOTAL_RESPONDENTS, projectCount, respondents, type Respondent } from '@
 import {
   EMPTY_FILTERS,
   activeMetric,
-  applyCondition,
-  cellFilterValues,
   matchesConditions,
   matchesFilters,
   metricConditions,
-  newCondition,
   type Filters,
 } from './filters/filters'
 import { propertyForColumn } from './filters/properties'
-import { applyInterpretation, changesSomething, describeInterpretation, interpret } from './filters/aiFilters'
+import { applyInterpretation, changesSomething, interpret, interpretationNotes, type AiNote } from './filters/aiFilters'
+import type { AiFailure } from './components/AiSearch'
 import { MetricStrip } from './components/MetricStrip'
 import { useMediaQuery } from './hooks/useMediaQuery'
 import { useStoredState } from './hooks/useStoredState'
@@ -100,26 +98,31 @@ export function App() {
   const notify = (text: string, action?: ToastMessage['action']) => setToast({ id: Date.now(), text, action })
   /** "Filter with AI" is reading a description (simulated, see filters/aiFilters). */
   const [aiBusy, setAiBusy] = useState(false)
+  /** The last description gave no filters (explained under the search field). */
+  const [aiFailure, setAiFailure] = useState<AiFailure | null>(null)
+  /** What the AI couldn't use from the last description it applied (note chips). */
+  const [aiNotes, setAiNotes] = useState<AiNote[]>([])
   const filtersRef = useRef(filters)
   filtersRef.current = filters
   /**
    * Turns a description into filters over the current ones (a property already filtered is
-   * replaced) and clears the search; the new chips are the confirmation. A toast shows only when
-   * part of the text couldn't be used. When nothing in it maps to a filter, the text stays in the
-   * search as typed.
+   * replaced) and clears the search; the new chips are the confirmation, and what it couldn't use
+   * follows them as note chips. When nothing in it maps to a filter, the text stays in the search
+   * as typed and the search explains under the field.
    */
   const askAi = (prompt: string) => {
     setAiBusy(true)
+    setAiFailure(null)
     // Stands in for the model's round trip.
     window.setTimeout(() => {
       setAiBusy(false)
       const result = interpret(prompt)
       if (!changesSomething(result)) {
-        notify(describeInterpretation(result))
+        setAiFailure({ prompt, ambiguous: result.ambiguous })
         return
       }
       setFilters({ query: '', conditions: applyInterpretation(filtersRef.current.conditions, result) })
-      if (result.unmatched.length || result.ambiguous.length || result.orAcross) notify(describeInterpretation(result))
+      setAiNotes(interpretationNotes(result))
     }, 700)
   }
   const currentView: ViewState = { conditions: filters.conditions, columnVisibility, columnOrder, columnPinning, sorting }
@@ -247,13 +250,6 @@ export function App() {
       onOpen: openDetail,
       onToggleMenu: (next) => {
         setMenu((cur) => (cur && cur.type === next.type && cur.id === next.id ? null : next))
-      },
-      onCellMenu: (rowId, columnId) => {
-        const prop = propertyForColumn(columnId)
-        const r = data.find((x) => x.id === rowId)
-        if (!prop || !r || !cellFilterValues(prop, r).length) return false
-        setMenu({ type: 'cell', id: rowId, col: columnId })
-        return true
       },
       onUpdate: (id, patch) => setData((prev) => prev.map((r) => (r.id === id ? { ...r, ...patch } : r))),
       onPlay: (id, kind) => {
@@ -449,35 +445,6 @@ export function App() {
         />
       )
     }
-  } else if (menu?.type === 'cell') {
-    // Right-click (or the menu key) on a cell: filter by its value, or leave it out, in one step.
-    const r = data.find((x) => x.id === menu.id)
-    const prop = propertyForColumn(menu.col)
-    if (r && prop) {
-      const text = prop.type === 'text'
-      const filterBy = (value: string, exclude: boolean) =>
-        setFilters((prev) => ({
-          ...prev,
-          conditions: applyCondition(prev.conditions, newCondition(prop.id, [value], text ? (exclude ? 'not_contains' : 'contains') : exclude ? 'is_not' : 'is')),
-        }))
-      // A multi-value cell offers its first tags.
-      const items: MenuItem[] = cellFilterValues(prop, r)
-        .slice(0, 3)
-        .flatMap(([value, label], i) => [
-          { label: `Filter by “${label}”`, icon: 'funnel', separatorBefore: i > 0, onSelect: () => filterBy(value, false) },
-          { label: `Exclude “${label}”`, icon: 'eyeSlash', onSelect: () => filterBy(value, true) },
-        ])
-      menuNode = (
-        <FloatingMenu
-          anchorKey={`ctx:${r.id}:${menu.col}`}
-          label={`Filter by this ${prop.label} value`}
-          align="start"
-          width={240}
-          onClose={() => setMenu(null)}
-          items={items}
-        />
-      )
-    }
   }
 
   return (
@@ -559,6 +526,10 @@ export function App() {
               onEditFilter={openFilters}
               onAskAi={askAi}
               aiBusy={aiBusy}
+              aiFailure={aiFailure}
+              onDismissAiFailure={() => setAiFailure(null)}
+              aiNotes={aiNotes}
+              onAiNotesChange={setAiNotes}
               pickedCount={pickedCount}
               onPasteClick={PASTE_IMPORT_ENABLED ? () => setPasteText('') : undefined}
               notice={

@@ -4,8 +4,9 @@ import { projectCount, type Respondent } from '@data/respondents'
 import { activeConditions, isComplete, searchTerms, type Condition, type Filters } from '../filters/filters'
 import type { features } from '../table/respondentsTable'
 import type { SavedViewsApi } from '../views/useSavedViews'
-import { AiSearch } from './AiSearch'
-import { FilterChip } from './FilterChips'
+import type { AiNote } from '../filters/aiFilters'
+import { AiSearch, type AiFailure } from './AiSearch'
+import { AiNoteChip, FilterChip } from './FilterChips'
 import { Icon } from './Icon'
 import { ViewsButton } from './SavedViews'
 
@@ -39,9 +40,15 @@ interface Props {
   /** Turns a description typed in the search into filters. */
   onAskAi: (prompt: string) => void
   aiBusy: boolean
+  /** The last description gave no filters (explained under the search). */
+  aiFailure: AiFailure | null
+  onDismissAiFailure: () => void
+  /** What the AI couldn't use from the last description it applied, as note chips. */
+  aiNotes: AiNote[]
+  onAiNotesChange: (notes: AiNote[]) => void
 }
 
-export function ListHeader({ table, total, filters, onFiltersChange, views, tool, onToggleTool, pickedCount, onPasteClick, notice, filtersOpen, onToggleFilters, onEditFilter, onAskAi, aiBusy }: Props) {
+export function ListHeader({ table, total, filters, onFiltersChange, views, tool, onToggleTool, pickedCount, onPasteClick, notice, filtersOpen, onToggleFilters, onEditFilter, onAskAi, aiBusy, aiFailure, onDismissAiFailure, aiNotes, onAiNotesChange }: Props) {
   const filtersBtn = useRef<HTMLButtonElement>(null)
 
   const conditions = filters.conditions
@@ -68,13 +75,27 @@ export function ListHeader({ table, total, filters, onFiltersChange, views, tool
         {pickedCount > 0 ? `${pickedCount} selected` : hasFilters ? `${fmt(resultCount)} of ${fmt(total)} respondents match` : ''}
       </span>
       <div className="head-band band-filters">
-        <AiSearch query={filters.query} onQueryChange={(query) => onFiltersChange({ query })} onAsk={onAskAi} busy={aiBusy} />
+        <AiSearch
+          query={filters.query}
+          onQueryChange={(query) => onFiltersChange({ query })}
+          onAsk={onAskAi}
+          busy={aiBusy}
+          failure={aiFailure}
+          onDismissFailure={onDismissAiFailure}
+          onOpenFilters={() => {
+            if (!filtersOpen) onToggleFilters()
+          }}
+        />
         {/* Bulk actions float over the table (see BulkActions), so the chips stay while rows are picked. */}
-        {activeCount > 0 ? (
-          // The applied filters as chips; a chip's text opens its section in the drawer.
+        {activeCount > 0 || aiNotes.length > 0 ? (
+          // The applied filters as chips; a chip's text opens its section in the drawer. After them,
+          // what the AI couldn't use from the last description, as dashed note chips.
           <div className="chips-row" role="group" aria-label="Applied filters">
             {conditions.filter(isComplete).map((c) => (
               <FilterChip key={c.id} condition={c} onEdit={() => onEditFilter(c.prop)} onRemove={() => removeFilter(c.id)} />
+            ))}
+            {aiNotes.map((n) => (
+              <AiNoteChip key={n.id} note={n} onRemove={() => onAiNotesChange(aiNotes.filter((x) => x.id !== n.id))} />
             ))}
             {/* Clears the chips it sits next to; the search keeps its own × */}
             <button
@@ -82,6 +103,7 @@ export function ListHeader({ table, total, filters, onFiltersChange, views, tool
               className="btn-link muted"
               onClick={() => {
                 setConditions([])
+                onAiNotesChange([])
                 filtersBtn.current?.focus()
               }}
             >

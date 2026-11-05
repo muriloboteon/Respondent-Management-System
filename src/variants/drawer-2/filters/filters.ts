@@ -1,5 +1,5 @@
 import { TODAY, type Respondent } from '@data/respondents'
-import { NOT_SET, choicesFor, getProperty, type PropType, type PropertyDef } from './properties'
+import { NOT_SET, choicesFor, getProperty, type PropType } from './properties'
 
 /* ---------- Model: one chip per property, every chip must hold (AND) ---------- */
 
@@ -133,22 +133,6 @@ export function matchesFilters(r: Respondent, f: Filters): boolean {
     if (!terms.some((t) => hay.includes(t))) return false
   }
   return matchesConditions(r, f.conditions)
-}
-
-/**
- * What "Filter by …" offers on a cell: the cell's own values as [value, label] (each tag of a
- * multi-value cell, "Not set" for an empty one). Dates aren't table cells.
- */
-export function cellFilterValues(prop: PropertyDef, r: Respondent): Array<[string, string]> {
-  const raw = prop.get(r)
-  if (prop.type === 'text') return typeof raw === 'string' && raw ? [[raw, raw]] : []
-  if (prop.type === 'date') return []
-  const choices = choicesFor(prop)
-  const label = (v: string) => choices.find((o) => o[0] === v)?.[1] ?? v
-  if (prop.type === 'boolean') return [[String(Boolean(raw)), label(String(Boolean(raw)))]]
-  const have = Array.isArray(raw) ? raw : raw === undefined || raw === '' ? [] : [String(raw)]
-  if (!have.length) return prop.optional ? [[NOT_SET, 'Not set']] : []
-  return have.map((v) => [v, label(v)])
 }
 
 /* ---------- Labels (chips) ---------- */

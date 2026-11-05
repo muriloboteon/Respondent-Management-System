@@ -1,5 +1,26 @@
+import type { AiNote } from '../filters/aiFilters'
 import { chipParts, type Condition } from '../filters/filters'
 import { Icon } from './Icon'
+
+/**
+ * Part of the last AI description that couldn't be used ("Not understood: heavy shoppers"): a
+ * dashed chip after the filters, so it stays in view with the results; × dismisses it. The tooltip
+ * explains.
+ */
+export function AiNoteChip({ note, onRemove }: { note: AiNote; onRemove: () => void }) {
+  return (
+    <span className="chip chip-note" title={note.detail}>
+      <span className="chip-note-icon" aria-hidden="true">
+        <Icon name="sparkle" small />
+      </span>
+      <span className="v">{note.text}</span>
+      <span className="sr-only">. {note.detail}</span>
+      <button type="button" aria-label={`Dismiss note: ${note.text}`} onClick={onRemove}>
+        <Icon name="x" small />
+      </button>
+    </span>
+  )
+}
 
 /**
  * One applied filter in the band: its text opens its section in the filters drawer, × removes it.

@@ -12,10 +12,13 @@ export interface Variant {
   description: string
 }
 
+/** What the variants differ in, shown before the tabs. */
+export const VARIANTS_COMPARE = 'Filter type'
+
 export const VARIANTS: Variant[] = [
-  { id: 'main', label: 'Facet drawer', description: 'Filters in a side drawer: a section per property, values tick on and apply right away' },
-  { id: 'popover', label: 'Popover + chips', description: 'Filters as chips above the table; one popover picks the column and its values, added with a button' },
-  { id: 'drawer-2', label: 'Facet drawer 2', description: 'Facet drawer with progressive disclosure: applied filters, a few common properties, the rest behind Add filter; plus saved views' },
+  { id: 'drawer-2', label: 'Guided drawer', description: 'Filters in a side drawer, guided: applied filters and a few common properties first, the rest behind Add filter' },
+  { id: 'main', label: 'Full drawer', description: 'Filters in a side drawer with every property listed: values tick on and apply right away' },
+  { id: 'popover', label: 'Inline chips', description: 'Filters as chips above the table, no drawer: one popover picks the column and its values' },
 ]
 
 export function variantHref(id: string) {

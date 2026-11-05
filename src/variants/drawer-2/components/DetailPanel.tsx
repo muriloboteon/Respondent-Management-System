@@ -43,13 +43,21 @@ const METHODS = [
 
 interface Field {
   label: string
+  /** Full name shown on hover when the label is shortened or may be clamped. */
+  title?: string
   value: ReactNode
 }
 
 function segmentFields(r: Respondent): Field[] {
   const tags = (values: readonly string[]) =>
     values.length ? <span className="chip-list">{values.map((v) => <Tag key={v}>{v}</Tag>)}</span> : <span className="cell-dash">Not set</span>
-  return SEGMENTS.map((s) => ({ label: s.label, value: tags(r.segments[s.key] ?? []) }))
+  // Short name when the segment has one; long names are clamped to two lines, so the
+  // full name is the tooltip either way.
+  return SEGMENTS.map((s) => ({
+    label: s.shortLabel ?? s.label,
+    title: s.shortLabel || s.label.length > 30 ? s.label : undefined,
+    value: tags(r.segments[s.key] ?? []),
+  }))
 }
 
 function detailFields(r: Respondent, hideContact: boolean): { shown: Field[]; empty: string[] } {
@@ -78,10 +86,10 @@ function detailFields(r: Respondent, hideContact: boolean): { shown: Field[]; em
 }
 
 /** A label / value row; editable rows show a pencil on hover. */
-function FieldRow({ label, editable = false, children }: { label: string; editable?: boolean; children: ReactNode }) {
+function FieldRow({ label, title, editable = false, children }: { label: string; title?: string; editable?: boolean; children: ReactNode }) {
   return (
     <div className={editable ? 'field-row editable' : 'field-row'}>
-      <dt>{label}</dt>
+      <dt title={title}>{label}</dt>
       <dd>
         {children}
         {editable && (
@@ -222,10 +230,7 @@ export function DetailPanel({
             <span aria-hidden="true">/</span>
             <strong>{r.pid}</strong>
           </span>
-          <span className="detail-title">
-            <span className={`avatar ${r.avatarClass}`} aria-hidden="true">{r.initials}</span>
-            <h2 id="detail-h">{r.name}</h2>
-          </span>
+          <h2 id="detail-h">{r.name}</h2>
           {dup && <Tag variant="warn">{dup.note}</Tag>}
           {/* Same actions as the bulk actions and the row menu, minus Segment (the Segments
               section below edits them); Export and Remove are icon-only here. */}
@@ -273,7 +278,7 @@ export function DetailPanel({
 
           <Fold title="Segments" boxed>
             <dl className="field-grid">
-              {segmentFields(r).map((f) => <FieldRow key={f.label} label={f.label} editable>{f.value}</FieldRow>)}
+              {segmentFields(r).map((f) => <FieldRow key={f.label} label={f.label} title={f.title} editable>{f.value}</FieldRow>)}
             </dl>
             <button type="button" className="btn-add">
               <Icon name="plus" small />

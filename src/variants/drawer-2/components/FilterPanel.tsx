@@ -64,7 +64,7 @@ function Facet({ prop, condition, filters, data, toProject, onSet }: FacetProps)
   /** Long lists show their first values until "Show more". */
   const [showAll, setShowAll] = useState(false)
 
-  // Text: matches what contains the typed text ("Exclude" on a cell leaves it out, which the note says).
+  // Text: matches what contains the typed text (an AI search or a saved view may leave it out instead, which the note says).
   if (prop.type === 'text') {
     return (
       <>
@@ -131,7 +131,7 @@ function Facet({ prop, condition, filters, data, toProject, onSet }: FacetProps)
     )
   }
 
-  // Lists and yes / no: tick the values to keep. "Exclude" on a cell leaves them out instead, which
+  // Lists and yes / no: tick the values to keep. An AI search or a saved view may leave them out instead, which
   // the note says, since the drawer has no "is / is not" switch.
   const q = query.trim().toLowerCase()
   const matching = order.filter(([, text]) => text.toLowerCase().includes(q))
@@ -426,7 +426,7 @@ export function FilterPanel({ filters, data, toProject, asDialog, resizable, wid
         ) : (
           <div className="fpanel-empty-state">
             <p className="fpanel-empty-title">No filters yet</p>
-            <p>Add a filter above to narrow the list. Values apply as you tick them.</p>
+            <p>Add a filter above to narrow the list.</p>
           </div>
         )}
       </div>

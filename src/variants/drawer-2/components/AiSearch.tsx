@@ -1,6 +1,13 @@
 import { useId, useRef, useState } from 'react'
 import { AI_EXAMPLES } from '../filters/aiFilters'
-import { Icon } from './Icon'
+import { Icon, type IconName } from './Icon'
+
+/** A description the AI couldn't turn into any filter. */
+export interface AiFailure {
+  prompt: string
+  /** Words that fit more than one property ("completed": self captures or tech check?). */
+  ambiguous: string[]
+}
 
 interface Props {
   query: string
@@ -9,15 +16,28 @@ interface Props {
   onAsk: (prompt: string) => void
   /** The AI is reading the text. */
   busy: boolean
+  /** The last description gave no filters: explained right under the field until dismissed. */
+  failure: AiFailure | null
+  onDismissFailure: () => void
+  onOpenFilters: () => void
+}
+
+interface Option {
+  key: string
+  label: string
+  icon?: IconName
+  run: () => void
 }
 
 /**
  * The search field, which also takes a description. Typing searches names, emails and IDs as
  * before; Enter, or the "Filter with AI" button inside the field, turns the text into filters
  * instead. Nothing opens over the table while there's text, so the search results stay in view;
- * only the empty field, focused, offers a few example descriptions under it.
+ * only the empty field, focused, offers a few example descriptions under it. When a description
+ * gives no filters, the same spot says so (with examples and a way to the filters drawer) until
+ * the text changes or focus leaves; the text stays in the field to edit.
  */
-export function AiSearch({ query, onQueryChange, onAsk, busy }: Props) {
+export function AiSearch({ query, onQueryChange, onAsk, busy, failure, onDismissFailure, onOpenFilters }: Props) {
   const input = useRef<HTMLInputElement>(null)
   const listId = useId()
   const [focused, setFocused] = useState(false)
@@ -25,15 +45,55 @@ export function AiSearch({ query, onQueryChange, onAsk, busy }: Props) {
   /** After a run the field is empty and still focused: the examples stay closed so the new results show. */
   const [asked, setAsked] = useState(false)
   const text = query.trim()
+  const failed = failure !== null && !busy
   const showExamples = focused && !text && !busy && !asked
 
   const ask = (prompt: string) => {
     if (busy || !prompt.trim()) return
     if (prompt !== query) onQueryChange(prompt)
+    if (failure) onDismissFailure()
     setActive(-1)
     setAsked(true)
     onAsk(prompt.trim())
   }
+
+  const examples: Option[] = AI_EXAMPLES.map((prompt) => ({ key: prompt, label: prompt, run: () => ask(prompt) }))
+  const options: Option[] = failed
+    ? [
+        // An unclear word needs the user's words, not an example.
+        ...(failure.ambiguous.length ? [] : examples),
+        {
+          key: 'open-filters',
+          label: 'Open filters',
+          icon: 'funnel',
+          run: () => {
+            onDismissFailure()
+            onOpenFilters()
+          },
+        },
+      ]
+    : showExamples
+      ? examples
+      : []
+  const listOpen = failed || showExamples
+
+  const option = (o: Option, i: number) => (
+    <div
+      key={o.key}
+      id={`${listId}-${i}`}
+      role="option"
+      aria-selected={active === i}
+      // Actions (Open filters) follow the examples under a divider.
+      className={o.icon ? 'menu-item ai-option ai-action' : 'menu-item ai-option ai-example'}
+      // Keep focus in the field.
+      onMouseDown={(e) => e.preventDefault()}
+      onMouseEnter={() => setActive(i)}
+      onClick={o.run}
+    >
+      {o.icon && <Icon name={o.icon} />}
+      <span className="ai-example-text">{o.label}</span>
+    </div>
+  )
 
   return (
     <div
@@ -43,6 +103,8 @@ export function AiSearch({ query, onQueryChange, onAsk, busy }: Props) {
         if (e.currentTarget.contains(e.relatedTarget as Node | null)) return
         setFocused(false)
         setAsked(false)
+        setActive(-1)
+        if (failure) onDismissFailure()
       }}
     >
       <label className="field field-sm">
@@ -52,10 +114,10 @@ export function AiSearch({ query, onQueryChange, onAsk, busy }: Props) {
           ref={input}
           type="search"
           role="combobox"
-          aria-expanded={showExamples}
+          aria-expanded={listOpen}
           aria-controls={listId}
           aria-autocomplete="list"
-          aria-activedescendant={showExamples && active >= 0 ? `${listId}-${active}` : undefined}
+          aria-activedescendant={listOpen && active >= 0 ? `${listId}-${active}` : undefined}
           aria-busy={busy || undefined}
           placeholder="Search or describe with AI"
           title="Search by name, email or ID, or describe who you’re looking for and press Enter."
@@ -65,21 +127,25 @@ export function AiSearch({ query, onQueryChange, onAsk, busy }: Props) {
             onQueryChange(e.target.value)
             setActive(-1)
             setAsked(false)
+            if (failure) onDismissFailure()
           }}
           onKeyDown={(e) => {
-            if (showExamples && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
+            if (listOpen && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
               e.preventDefault()
-              // Moves through the examples and back to the field (-1).
+              // Moves through the options and back to the field (-1).
               const step = e.key === 'ArrowDown' ? 1 : -1
-              setActive((i) => (i + step >= AI_EXAMPLES.length ? -1 : i + step < -1 ? AI_EXAMPLES.length - 1 : i + step))
+              setActive((i) => (i + step >= options.length ? -1 : i + step < -1 ? options.length - 1 : i + step))
             } else if (e.key === 'Enter') {
               e.preventDefault()
-              ask(showExamples && active >= 0 ? AI_EXAMPLES[active] : query)
-            } else if (e.key === 'Escape' && showExamples) {
-              // Closes the examples only, not the drawer or panel behind them.
+              if (listOpen && active >= 0) options[active]?.run()
+              else ask(query)
+            } else if (e.key === 'Escape' && listOpen) {
+              // Closes the list only, not the drawer or panel behind it.
               e.preventDefault()
               e.stopPropagation()
-              setFocused(false)
+              setActive(-1)
+              if (failure) onDismissFailure()
+              else setFocused(false)
             }
           }}
         />
@@ -91,6 +157,7 @@ export function AiSearch({ query, onQueryChange, onAsk, busy }: Props) {
             aria-label="Clear search"
             onClick={() => {
               onQueryChange('')
+              if (failure) onDismissFailure()
               input.current?.focus()
             }}
           >
@@ -116,26 +183,38 @@ export function AiSearch({ query, onQueryChange, onAsk, busy }: Props) {
         )}
       </label>
 
-      {showExamples && (
-        <div className="ai-suggest" id={listId} role="listbox" aria-label="Example descriptions to filter with AI">
-          <div className="ai-suggest-head" aria-hidden="true">
-            <Icon name="sparkle" small />
-            Describe who you’re looking for, for example
-          </div>
-          {AI_EXAMPLES.map((prompt, i) => (
-            <div
-              key={prompt}
-              id={`${listId}-${i}`}
-              role="option"
-              aria-selected={active === i}
-              className="menu-item ai-option ai-example"
-              onMouseDown={(e) => e.preventDefault()}
-              onMouseEnter={() => setActive(i)}
-              onClick={() => ask(prompt)}
-            >
-              <span className="ai-example-text">{prompt}</span>
+      {listOpen && (
+        <div className="ai-suggest">
+          {failed ? (
+            <div className="ai-fail" role="status">
+              <span className="ai-fail-icon">
+                <Icon name="sparkle" small />
+              </span>
+              <span className="ai-fail-text">
+                {failure.ambiguous.length ? (
+                  <>
+                    <strong>“{failure.ambiguous.join('”, “')}” could mean self captures or tech check</strong>
+                    <span>Say which one, for example “self captures {failure.ambiguous[0]}”.</span>
+                  </>
+                ) : (
+                  <>
+                    <strong>
+                      No filters found for <q>{failure.prompt}</q>
+                    </strong>
+                    <span>Try describing a value, for example:</span>
+                  </>
+                )}
+              </span>
             </div>
-          ))}
+          ) : (
+            <div className="ai-suggest-head" aria-hidden="true">
+              <Icon name="sparkle" small />
+              Describe who you’re looking for, for example
+            </div>
+          )}
+          <div id={listId} role="listbox" aria-label={failed ? 'What to try next' : 'Example descriptions to filter with AI'} className="ai-options">
+            {options.map(option)}
+          </div>
         </div>
       )}
     </div>
