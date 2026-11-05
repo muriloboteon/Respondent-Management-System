@@ -17,7 +17,10 @@ import { Icon } from './components/Icon'
 import { PasteImportDialog } from './components/PasteImportDialog'
 import { FloatingMenu, type MenuItem } from './components/FloatingMenu'
 import { FILTER_DEFAULT_W, FILTER_MAX_W, FILTER_MIN_W, FilterPanel } from './components/FilterPanel'
-import { ListHeader, type Panel } from './components/ListHeader'
+import { ListHeader, type Tool } from './components/ListHeader'
+import { ColumnsPanel } from './components/ColumnsPanel'
+import { ViewsPanel } from './components/SavedViews'
+import { SidePanel } from './components/SidePanel'
 import { OrgRail } from './components/OrgRail'
 import { ProjectSidebar, ProjectSidebarToggle } from './components/ProjectSidebar'
 import { RespondentsTable } from './components/RespondentsTable'
@@ -38,6 +41,7 @@ import {
   type Filters,
 } from './filters/filters'
 import { propertyForColumn } from './filters/properties'
+import { applyInterpretation, changesSomething, describeInterpretation, interpret } from './filters/aiFilters'
 import { MetricStrip } from './components/MetricStrip'
 import { useMediaQuery } from './hooks/useMediaQuery'
 import { useStoredState } from './hooks/useStoredState'
@@ -93,6 +97,30 @@ export function App() {
   const [columnOrder, setColumnOrder] = useState<ColumnOrderState>(initialSetup.state.columnOrder)
   const [toast, setToast] = useState<ToastMessage | null>(null)
   const notify = (text: string, action?: ToastMessage['action']) => setToast({ id: Date.now(), text, action })
+  /** "Filter with AI" is reading a description (simulated, see filters/aiFilters). */
+  const [aiBusy, setAiBusy] = useState(false)
+  const filtersRef = useRef(filters)
+  filtersRef.current = filters
+  /**
+   * Turns a description into filters over the current ones (a property already filtered is
+   * replaced), clears the search and offers Undo. When nothing in it maps to a filter, the text
+   * stays in the search as typed.
+   */
+  const askAi = (prompt: string) => {
+    setAiBusy(true)
+    // Stands in for the model's round trip.
+    window.setTimeout(() => {
+      setAiBusy(false)
+      const result = interpret(prompt)
+      if (!changesSomething(result)) {
+        notify(describeInterpretation(result))
+        return
+      }
+      const before = filtersRef.current
+      setFilters({ query: '', conditions: applyInterpretation(before.conditions, result) })
+      notify(describeInterpretation(result), { label: 'Undo', onClick: () => setFilters({ query: '', conditions: before.conditions }) })
+    }, 700)
+  }
   const currentView: ViewState = { conditions: filters.conditions, columnVisibility, columnOrder, columnPinning, sorting }
   const views = useSavedViews({
     initial: initialSetup,
@@ -119,13 +147,14 @@ export function App() {
   const [detailWidth, setDetailWidth] = useStoredState('respondent-hub:drawer-2:detail-width', 440, isNumber)
   const [filterWidth, setFilterWidth] = useStoredState('respondent-hub:drawer-2:filter-width', FILTER_DEFAULT_W, isNumber)
   const [projectNavOpen, setProjectNavOpen] = useStoredState('respondent-hub:drawer-2:project-nav-open', true, isBoolean)
-  const [panel, setPanel] = useState<Panel>(null)
   const [menu, setMenu] = useState<MenuState>(null)
   /**
    * The filters drawer, in the detail panel's place (null when closed). `prop` is the section to
    * open and scroll to (a chip, a column's "Filter…"); a new `seq` asks again while it's open.
    */
   const [filterPanel, setFilterPanel] = useState<{ prop: string | null; seq: number } | null>(null)
+  /** The Views or Columns side panel, also in the detail panel's place (null when closed). */
+  const [tool, setTool] = useState<Tool | null>(null)
   /** A row whose name should turn into a text field ("Rename" in the row menu). */
   const [renamingId, setRenamingId] = useState<string | null>(null)
   /** The "more actions" menu next to Upload Respondents. */
@@ -139,9 +168,10 @@ export function App() {
   const isWide = useMediaQuery('(min-width: 1280px)')
   const closeBtn = useRef<HTMLButtonElement>(null)
 
-  // The respondent detail and the filters share the side panel: opening one closes the other.
+  // The respondent detail, the filters, Views and Columns share the side panel: opening one closes the others.
   const openDetail = (id: string) => {
     setFilterPanel(null)
+    setTool(null)
     setSelectedId(id)
     setDrawerOpen(true)
     setMenu(null)
@@ -158,14 +188,27 @@ export function App() {
     setDrawerOpen(false)
     setDetailExpanded(false)
     setMenu(null)
-    setPanel(null)
+    setTool(null)
     setFilterPanel((cur) => ({ prop, seq: (cur?.seq ?? 0) + 1 }))
   }
   const closeFilters = () => {
     setFilterPanel(null)
     requestAnimationFrame(() => document.querySelector<HTMLElement>('[data-filters-toggle]')?.focus())
   }
-  const closeSidePanel = () => (filterPanel ? closeFilters() : closeDetail())
+  const openTool = (next: Tool) => {
+    setSelectedId(null)
+    setDrawerOpen(false)
+    setDetailExpanded(false)
+    setMenu(null)
+    setFilterPanel(null)
+    setTool(next)
+  }
+  const closeTool = () => {
+    const was = tool
+    setTool(null)
+    requestAnimationFrame(() => document.querySelector<HTMLElement>(`[data-tool="${was}"]`)?.focus())
+  }
+  const closeSidePanel = () => (filterPanel ? closeFilters() : tool ? closeTool() : closeDetail())
 
   const table = useTable({
     features,
@@ -202,14 +245,12 @@ export function App() {
       onRenameStarted: () => setRenamingId(null),
       onOpen: openDetail,
       onToggleMenu: (next) => {
-        setPanel(null)
         setMenu((cur) => (cur && cur.type === next.type && cur.id === next.id ? null : next))
       },
       onCellMenu: (rowId, columnId) => {
         const prop = propertyForColumn(columnId)
         const r = data.find((x) => x.id === rowId)
         if (!prop || !r || !cellFilterValues(prop, r).length) return false
-        setPanel(null)
         setMenu({ type: 'cell', id: rowId, col: columnId })
         return true
       },
@@ -236,7 +277,6 @@ export function App() {
       // Only multi-cell selections (tabs or line breaks); a single copied value pastes normally.
       if (!/[\t\n]/.test(text.trim())) return
       e.preventDefault()
-      setPanel(null)
       setMenu(null)
       setPasteText(text)
     }
@@ -278,14 +318,16 @@ export function App() {
 
   const selected = data.find((r) => r.id === selectedId) ?? null
   const filtersOpen = filterPanel !== null
+  /** Filters, Views or Columns fills the side panel (they share the filters drawer's width). */
+  const toolOpen = filtersOpen || tool !== null
   /** On narrow screens the side panel slides over the table. */
   const asDialog = !isWide
   /** Expanded: the detail opens as a centered modal at any width. */
   const modalOpen = selected !== null && detailExpanded
-  const drawerOverlay = asDialog && (filtersOpen || (selected !== null && drawerOpen && !detailExpanded))
+  const drawerOverlay = asDialog && (toolOpen || (selected !== null && drawerOpen && !detailExpanded))
   const overlayOpen = drawerOverlay || modalOpen
-  const docked = !asDialog && (filtersOpen || (selected !== null && !detailExpanded))
-  const panelWidth = filtersOpen ? clampFilterWidth(filterWidth, projectNavOpen) : clampDetailWidth(detailWidth, projectNavOpen)
+  const docked = !asDialog && (toolOpen || (selected !== null && !detailExpanded))
+  const panelWidth = toolOpen ? clampFilterWidth(filterWidth, projectNavOpen) : clampDetailWidth(detailWidth, projectNavOpen)
 
   // Previous / next follow the table's current order (sorting and filters).
   const order = table.getRowModel().rows.map((row) => row.id)
@@ -302,7 +344,7 @@ export function App() {
       e.key === 'Escape' && !document.querySelector('dialog[open], .menu') && closeSidePanel()
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
-  }, [overlayOpen, filtersOpen])
+  }, [overlayOpen, filtersOpen, tool])
 
   const pickedCount = data.filter((r) => rowSelection[r.id]).length
   const total = TOTAL_RESPONDENTS + data.length - respondents.length
@@ -354,11 +396,11 @@ export function App() {
       }
       groups.push([
         ...(column.getCanHide() ? [{ label: 'Hide column', icon: 'eyeSlash', onSelect: () => column.toggleVisibility(false) } as const] : []),
-        // The Columns panel lives in the list header; its button opens it.
+        // Opens the Columns side panel (the Columns button in the list header does the same).
         {
           label: 'Manage columns',
           icon: 'columns',
-          onSelect: () => document.querySelector<HTMLButtonElement>('[aria-controls="panel-cols"]')?.click(),
+          onSelect: () => openTool('columns'),
         },
         // Widths are remembered per user without a Save; only offered once a column was resized.
         ...(isDefaultColumnSizing(columnSizing)
@@ -439,7 +481,7 @@ export function App() {
 
   return (
     <div
-      className={[drawerOverlay && 'is-drawer-open', modalOpen && 'is-detail-modal', docked && 'is-docked', panel && 'panel-open', projectNavOpen && 'is-project-nav-open',
+      className={[drawerOverlay && 'is-drawer-open', modalOpen && 'is-detail-modal', docked && 'is-docked', projectNavOpen && 'is-project-nav-open',
         tableScrolled && 'metrics-condensed']
         .filter(Boolean)
         .join(' ')}
@@ -463,7 +505,6 @@ export function App() {
               aria-haspopup="menu"
               aria-expanded={pageMenuOpen}
               onClick={() => {
-                setPanel(null)
                 setMenu(null)
                 setPageMenuOpen(!pageMenuOpen)
               }}
@@ -510,14 +551,13 @@ export function App() {
               filters={filters}
               onFiltersChange={(patch) => setFilters((prev) => ({ ...prev, ...patch }))}
               views={views}
-              panel={panel}
-              onPanelChange={(p) => {
-                setMenu(null)
-                setPanel(p)
-              }}
+              tool={tool}
+              onToggleTool={(next) => (tool === next ? closeTool() : openTool(next))}
               filtersOpen={filtersOpen}
               onToggleFilters={() => (filtersOpen ? closeFilters() : openFilters(null))}
               onEditFilter={openFilters}
+              onAskAi={askAi}
+              aiBusy={aiBusy}
               pickedCount={pickedCount}
               onRemovePicked={() => askRemove(data.filter((r) => rowSelection[r.id]).map((r) => r.id))}
               onPasteClick={PASTE_IMPORT_ENABLED ? () => setPasteText('') : undefined}
@@ -573,7 +613,22 @@ export function App() {
               onClose={closeFilters}
             />
           )}
-          {selected && !filterPanel && (
+          {tool && (
+            <SidePanel
+              id={tool === 'views' ? 'views-panel' : 'columns-panel'}
+              title={tool === 'views' ? 'Views' : 'Columns'}
+              icon={tool === 'views' ? 'stack' : 'columns'}
+              asDialog={asDialog}
+              resizable={docked}
+              width={panelWidth}
+              onWidthChange={(w) => setFilterWidth(clampFilterWidth(w, projectNavOpen))}
+              closeRef={closeBtn}
+              onClose={closeTool}
+            >
+              {tool === 'views' ? <ViewsPanel views={views} /> : <ColumnsPanel table={table} />}
+            </SidePanel>
+          )}
+          {selected && !filterPanel && !tool && (
             <DetailPanel
               r={selected}
               all={data}

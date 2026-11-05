@@ -18,54 +18,35 @@ const fmt = (n: number) => n.toLocaleString('en-US')
 type Selection = { kind: 'view'; id: string | null } | { kind: 'new' }
 
 /**
- * Saved views, in two steps. The Views button opens a short menu to switch views in one click
- * (picking the open view again brings back its saved setup). Saving is always "Save as new view";
- * what a view contains, renaming, duplicating and deleting live in the Manage views modal.
+ * Saved views. The Views button opens the side panel (like Filters and Columns) with the views
+ * listed: one click switches the table, and the panel stays open so views can be compared side by
+ * side with the table (picking the open view again brings back its saved setup). Saving is always
+ * "Save as new view"; what a view contains, renaming, duplicating and deleting live in the Manage
+ * views modal.
  */
-export function SavedViewsControl({ views, open, onOpenChange }: { views: SavedViewsApi; open: boolean; onOpenChange: (open: boolean) => void }) {
-  const [manage, setManage] = useState<Selection | null>(null)
+export function ViewsButton({ views, open, onToggle }: { views: SavedViewsApi; open: boolean; onToggle: () => void }) {
   const name = views.activeView?.name ?? DEFAULT_VIEW_NAME
-  const openManage = (selection: Selection) => {
-    onOpenChange(false)
-    setManage(selection)
-  }
-
   return (
-    <div className="views-control">
-      <div className="pop-wrap">
-        <button
-          type="button"
-          className="btn btn-sm btn-outline views-btn"
-          aria-haspopup="dialog"
-          aria-expanded={open}
-          aria-controls="panel-views"
-          aria-label={`Views: ${name}`}
-          title={`View: ${name}`}
-          onClick={() => onOpenChange(!open)}
-        >
-          <Icon name="stack" />
-          Views
-          <Icon name="caretDown" small />
-        </button>
-        {open && (
-          <ViewsMenu
-            views={views}
-            onApply={(id) => {
-              views.open(id)
-              onOpenChange(false)
-            }}
-            onManage={openManage}
-          />
-        )}
-      </div>
-      {manage && <ManageViewsDialog views={views} initial={manage} onClose={() => setManage(null)} />}
-    </div>
+    <button
+      type="button"
+      className="btn btn-sm btn-outline views-btn"
+      data-tool="views"
+      aria-expanded={open}
+      aria-controls="views-panel"
+      aria-label={`Views: ${name}`}
+      title={`View: ${name}`}
+      onClick={onToggle}
+    >
+      <Icon name="stack" />
+      Views
+    </button>
   )
 }
 
-/** The short menu: "All respondents", your views, shared views, then Save as new view and Manage views. */
-function ViewsMenu({ views, onApply, onManage }: { views: SavedViewsApi; onApply: (id: string | null) => void; onManage: (s: Selection) => void }) {
+/** The Views side panel's content: "All respondents", your views, shared views, then Save as new view and Manage views. */
+export function ViewsPanel({ views }: { views: SavedViewsApi }) {
   const ref = useRef<HTMLDivElement>(null)
+  const [manage, setManage] = useState<Selection | null>(null)
   const activeId = views.activeView?.id ?? null
 
   useEffect(() => {
@@ -74,20 +55,22 @@ function ViewsMenu({ views, onApply, onManage }: { views: SavedViewsApi; onApply
 
   const item = (id: string | null, name: string, owner?: string) => (
     <li key={id ?? 'default'}>
-      <button type="button" className="view-item" aria-current={id === activeId} onClick={() => onApply(id)}>
+      <button type="button" className="view-item" aria-current={id === activeId} onClick={() => views.open(id)}>
         <span className="view-item-text">
           <span className="view-item-name">{name}</span>
           {owner && <span className="view-item-owner">{owner}</span>}
         </span>
-        {id === activeId && <Icon name="check" />}
+        {id === activeId && (
+          <span className="view-item-check">
+            <Icon name="check" />
+          </span>
+        )}
       </button>
     </li>
   )
 
   return (
-    <div ref={ref} className="panel views-panel" role="dialog" aria-labelledby="views-title" id="panel-views">
-      <span className="sheet-handle" aria-hidden="true" />
-      <p id="views-title" className="panel-title views-title">Views</p>
+    <div ref={ref} className="views-body">
       <ul className="view-list" aria-label="Default view">{item(null, DEFAULT_VIEW_NAME)}</ul>
       {views.myViews.length > 0 && (
         <section className="view-section" aria-labelledby="views-mine">
@@ -102,15 +85,16 @@ function ViewsMenu({ views, onApply, onManage }: { views: SavedViewsApi; onApply
         </section>
       )}
       <div className="view-foot">
-        <button type="button" className="view-item view-add" onClick={() => onManage({ kind: 'new' })}>
+        <button type="button" className="view-item view-add" onClick={() => setManage({ kind: 'new' })}>
           <Icon name="plus" />
           Save as new view
         </button>
-        <button type="button" className="view-item view-add" onClick={() => onManage({ kind: 'view', id: activeId })}>
+        <button type="button" className="view-item view-add" onClick={() => setManage({ kind: 'view', id: activeId })}>
           <Icon name="arrowsOut" />
           Manage views
         </button>
       </div>
+      {manage && <ManageViewsDialog views={views} initial={manage} onClose={() => setManage(null)} />}
     </div>
   )
 }
@@ -139,7 +123,7 @@ function ManageViewsDialog({ views, initial, onClose }: { views: SavedViewsApi; 
 
   const close = () => {
     onClose()
-    requestAnimationFrame(() => document.querySelector<HTMLElement>('[aria-controls="panel-views"]')?.focus())
+    requestAnimationFrame(() => document.querySelector<HTMLElement>('.views-body .view-item[aria-current="true"]')?.focus())
   }
 
   // A deleted view leaves the list: fall back to "All respondents".

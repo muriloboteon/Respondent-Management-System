@@ -166,14 +166,18 @@ svg.icon-sm { width: 12px; height: 12px; }
   border-radius: var(--radius-sm);
   background: var(--orchid-100); font-size: var(--fs-xs); line-height: 16px;
 }
-.chip .v { max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.chip .k { font-weight: 600; color: var(--foreground-accent-soft); }
-.chip .op { color: var(--foreground-secondary-muted); }
-.chip .v { font-weight: 500; color: var(--foreground-accent-soft); }
-.chip button { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; margin-left: calc(var(--sp-1) * -1); padding: 0; border: 0; border-radius: var(--radius-xs); background: none; color: var(--foreground-accent-soft); }
+/* Long names and values are cut so no chip passes 320px: the property name first (at most 140px),
+   then the value; "+N" (more values) and × always show. The tooltip has the full text. */
+.chip { max-width: 320px; }
+.chip .k, .chip .v { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.chip .k { flex: 0 0 auto; max-width: 140px; font-weight: 600; color: var(--foreground-accent-soft); }
+.chip .op { flex: none; white-space: nowrap; color: var(--foreground-secondary-muted); }
+.chip .v { flex: 0 1 auto; min-width: 24px; font-weight: 500; color: var(--foreground-accent-soft); }
+.chip .more { flex: none; font-weight: 600; color: var(--foreground-accent-soft); }
+.chip button { display: inline-flex; flex: none; align-items: center; justify-content: center; width: 24px; height: 24px; margin-left: calc(var(--sp-1) * -1); padding: 0; border: 0; border-radius: var(--radius-xs); background: none; color: var(--foreground-accent-soft); }
 .chip button:hover { background: var(--orchid-200); }
 /* The chip text opens its values */
-.chip .chip-body { display: inline-flex; align-items: center; gap: var(--sp-1); min-width: 0; width: auto; height: auto; margin: 0; padding: 0; font-size: inherit; text-align: left; color: inherit; }
+.chip .chip-body { display: inline-flex; flex: 0 1 auto; align-items: center; gap: var(--sp-1); min-width: 0; width: auto; height: auto; margin: 0; padding: 0; font-size: inherit; text-align: left; color: inherit; }
 .chip .chip-body:hover { background: none; }
 .chip .chip-body:hover .k { text-decoration: underline; text-underline-offset: 2px; }
 
@@ -566,12 +570,58 @@ svg.icon-sm { width: 12px; height: 12px; }
 }
 .search-clear:hover { background: var(--background-secondary-hover); color: var(--foreground); }
 .search-clear:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+
+/* Filter with AI: the search also takes a description. With text, a "Filter with AI" button sits
+   inside the field (nothing opens over the table, so search results stay in view); the empty
+   field, focused, lists examples under it. A fixed width (wider than a plain search, for
+   descriptions and the button); it only shrinks when the band runs out of room */
+.search-ai { position: relative; display: flex; }
+.band-filters .search-ai { flex: 0 1 360px; }
+.search-ai > .field { flex: 1 1 auto; min-width: 0; }
+.search-ai.is-busy > .field { border-color: var(--foreground-input-accent); }
+.ai-inline-btn {
+  display: inline-flex; align-items: center; gap: var(--sp-1); flex: none;
+  height: 22px; margin-right: calc(var(--sp-1-5) * -1); padding: 0 var(--sp-1) 0 var(--sp-1-5);
+  border: 0; border-radius: var(--radius-xs); background: var(--orchid-100);
+  font-size: var(--fs-xs); font-weight: 500; line-height: 16px; white-space: nowrap;
+  color: var(--foreground-accent-soft); cursor: pointer;
+}
+.ai-inline-btn .icon { color: var(--foreground-accent); }
+.ai-inline-btn:hover { background: var(--orchid-200); }
+.ai-inline-btn:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.ai-inline-btn:disabled { cursor: default; background: var(--orchid-100); }
+.ai-inline-btn .ai-kbd { padding: 0 var(--sp-1); line-height: 14px; border-color: var(--orchid-300); color: var(--foreground-accent-soft); }
+.ai-suggest {
+  position: absolute; top: calc(100% + 4px); left: 0; z-index: 30;
+  width: max(100%, 360px); max-width: calc(100vw - 32px);
+  padding: var(--sp-1); display: flex; flex-direction: column;
+  background: var(--surface-background); border: 1px solid var(--foreground-border);
+  border-radius: var(--radius-md); box-shadow: var(--shadow-md);
+}
+.ai-suggest-head {
+  display: flex; align-items: center; gap: var(--sp-1-5);
+  padding: var(--sp-1-5) var(--sp-2-5) var(--sp-1);
+  font-size: var(--fs-xs); line-height: 16px; font-weight: 600; color: var(--foreground-secondary-muted);
+}
+.ai-suggest-head .icon { color: var(--foreground-accent); }
+.ai-option { cursor: pointer; }
+.ai-option[aria-selected="true"] { background: var(--background-accent-soft); }
+.ai-example { min-height: 32px; }
+.ai-example-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--foreground-accent-soft); }
+.ai-kbd {
+  align-self: center; flex: none; padding: 0 var(--sp-1-5);
+  border: 1px solid var(--foreground-border); border-radius: var(--radius-xs);
+  font: inherit; font-size: 11px; line-height: 18px; color: var(--foreground-secondary-muted);
+}
+.ai-busy-icon { display: inline-flex; color: var(--foreground-accent); animation: ai-pulse 1s ease-in-out infinite; }
+@keyframes ai-pulse { 50% { opacity: .35; transform: scale(.8); } }
+@media (prefers-reduced-motion: reduce) {
+  .ai-busy-icon { animation: none; }
+}
 @container list-head (max-width: 980px) {
   .tools { flex-wrap: wrap; }
 }
 .chips-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-1-5); min-height: 28px; min-width: 0; }
-/* Filters button: opens the filters drawer; the chips follow it */
-.add-filter { min-height: 28px; padding-inline: var(--sp-2); }
 .tools .band-end { margin-left: 0; margin-right: var(--sp-1); flex-wrap: nowrap; }
 .band-filters .btn-link { min-height: 28px; font-size: var(--fs-xs); white-space: nowrap; }
 .result-count { font-size: var(--fs-xs); line-height: 16px; color: var(--foreground-secondary-muted); white-space: nowrap; }
@@ -1012,7 +1062,7 @@ body.is-resizing { cursor: col-resize; user-select: none; }
   .tools .pop-wrap, .tools > .btn { flex: 1 1 0; }
   .tools .pop-wrap > .btn { width: 100%; }
   .band-tools { flex-direction: column; align-items: stretch; }
-  .tools .pop-wrap:has(> .btn-icon) { flex: none; }
+  .tools .pop-wrap:has(> .btn-icon), .tools > .btn-icon { flex: none; }
   .tools, .band-end { margin-left: 0; }
   .bulk-actions { width: 100%; }
   .sticky { gap: var(--sp-2); padding-left: var(--sp-3); }
@@ -1199,16 +1249,14 @@ body.is-resizing { cursor: col-resize; user-select: none; }
 /* ==========================================================================
    Saved views
    ========================================================================== */
-/* Next to Columns: the Views button. Switching happens in its short menu; saving (always as a new
-   view) and managing in the Manage views modal. */
-.views-control { display: flex; flex: none; align-items: center; min-width: 0; }
-.views-btn > .icon:first-child { color: var(--foreground-secondary-muted); }
-.views-btn:hover > .icon:first-child, .views-btn[aria-expanded="true"] > .icon:first-child { color: inherit; }
-.views-btn .icon-sm { margin-right: calc(var(--sp-0-5) * -1); }
-
-/* The short menu: opens under the button, aligned to its right edge like the Columns panel */
-.views-panel { width: 300px; padding: var(--sp-2); gap: var(--sp-1); }
-.views-title { padding: var(--sp-1-5) var(--sp-2-5) var(--sp-1); }
+/* Filters, Views and Columns each open the side panel (in the detail panel's place), with the same
+   bar as the filters drawer. Views: switching keeps the panel open; saving (always as a new view)
+   and managing in the Manage views modal. */
+.views-body { display: flex; flex-direction: column; gap: var(--sp-1); padding: var(--sp-2); }
+.cols-body { display: flex; flex-direction: column; gap: var(--sp-2); padding: var(--sp-3) var(--sp-4); }
+.cols-head { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); min-height: 24px; }
+.cols-hint { margin: 0; font-size: var(--fs-xs); line-height: 16px; color: var(--foreground-secondary-muted); }
+.cols-head .btn-link { font-size: var(--fs-xs); white-space: nowrap; }
 .view-section { display: flex; flex-direction: column; padding-top: var(--sp-1); border-top: 1px solid var(--foreground-border); }
 .view-heading { margin: 0; padding: var(--sp-1-5) var(--sp-2-5) var(--sp-1); font-size: var(--fs-xs); line-height: 16px; font-weight: 600; color: var(--foreground-secondary-muted); }
 .view-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
@@ -1220,7 +1268,8 @@ body.is-resizing { cursor: col-resize; user-select: none; }
 .view-item:hover, .vm-item:hover { background: var(--background-accent-soft); }
 .view-item:focus-visible, .vm-item:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 .view-item[aria-current="true"] .view-item-name { font-weight: 600; }
-.view-item > .icon:last-child { flex: none; margin-left: auto; color: var(--foreground-accent); }
+/* The open view's check sits at the right edge; every label and action icon stays on the left */
+.view-item-check { display: inline-flex; flex: none; margin-left: auto; color: var(--foreground-accent); }
 .view-item-text { display: flex; flex-direction: column; min-width: 0; line-height: 20px; }
 .view-item-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .view-item-owner { font-size: var(--fs-xs); line-height: 16px; color: var(--foreground-secondary-muted); }
@@ -1263,8 +1312,6 @@ body.is-resizing { cursor: col-resize; user-select: none; }
 .vm-open-note { display: inline-flex; align-items: center; gap: var(--sp-1-5); font-size: var(--fs-sm); font-weight: 500; color: var(--success-soft-fg); }
 .vm-pane .form-field { margin-top: 0; }
 @media (max-width: 640px) {
-  /* In the tools row on phones, Views stretches like the other text buttons */
-  .tools .views-control { flex: 1 1 0; }
   .views-modal { height: 100dvh; }
   .vm-body { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
   .vm-nav { max-height: 40dvh; border-right: 0; border-bottom: 1px solid var(--foreground-border); }
@@ -1296,7 +1343,5 @@ body.is-resizing { cursor: col-resize; user-select: none; }
 @keyframes toast-in { from { opacity: 0; transform: translateY(8px); } }
 @media (prefers-reduced-motion: reduce) { .toast { animation: none; } }
 @media (max-width: 640px) {
-  /* A bottom sheet like the other panels */
-  .views-panel { right: 0; width: auto; padding-inline: var(--sp-3); }
   .toast-region { bottom: calc(var(--sp-4) + env(safe-area-inset-bottom)); }
 }

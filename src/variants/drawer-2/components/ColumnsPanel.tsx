@@ -26,7 +26,7 @@ const EDGE_STEP = 12
 const nameOf = (c: OrderColumn) => String(c.columnDef.header)
 
 /**
- * The Columns panel, like the MUI X Data Grid's: one row per column in table order. The checkbox
+ * The Columns side panel's content, like the MUI X Data Grid's: one row per column in table order. The checkbox
  * shows or hides the column; the handle drags it to a new place (mouse or touch), or moves it one
  * place with the up and down arrows. Pinned columns reorder among themselves only.
  */
@@ -60,7 +60,7 @@ export function ColumnsPanel({ table }: { table: Table }) {
   }
   const onPointerMove = (e: PointerEvent<HTMLButtonElement>, column: OrderColumn) => {
     if (dragId !== column.id) return
-    const panel = listRef.current?.closest<HTMLElement>('.panel')
+    const panel = listRef.current?.closest<HTMLElement>('.detail-scroll')
     if (panel) {
       const { top, bottom } = panel.getBoundingClientRect()
       if (e.clientY < top + EDGE) panel.scrollTop -= EDGE_STEP
@@ -89,10 +89,9 @@ export function ColumnsPanel({ table }: { table: Table }) {
   }
 
   return (
-    <div className="panel" role="dialog" aria-label="Columns" id="panel-cols">
-      <span className="sheet-handle" aria-hidden="true" />
-      <div className="panel-head">
-        <p className="panel-title">Columns</p>
+    <div className="cols-body">
+      <div className="cols-head">
+        <p className="cols-hint">Tick to show a column; drag to move it.</p>
         {isColumnOrderChanged(table) && (
           <button type="button" className="btn-link muted" onClick={() => resetColumnOrder(table)}>
             Reset order

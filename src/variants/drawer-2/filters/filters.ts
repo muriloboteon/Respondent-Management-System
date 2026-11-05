@@ -185,6 +185,20 @@ export function summarize(c: Condition): ChipSummary {
   return { prop: prop.label, op, val }
 }
 
+/**
+ * A filter chip's parts: one value and how many more ("Country: Brazil +2"), so a chip stays short
+ * however many values it holds; `full` reads out every value (tooltip and screen readers).
+ */
+export function chipParts(c: Condition): ChipSummary & { more: number; full: string } {
+  const s = summarize(c)
+  const prop = getProperty(c.prop)
+  const head = s.op ? `${s.prop} ${s.op}` : `${s.prop}:`
+  if (prop.type === 'text' || prop.type === 'date') return { ...s, more: 0, full: `${head} ${s.val}` }
+  const choices = choicesFor(prop)
+  const names = c.values.map((v) => choices.find((o) => o[0] === v)?.[1] ?? v)
+  return { ...s, val: names[0] ?? '', more: Math.max(0, names.length - 1), full: `${head} ${names.join(', ')}` }
+}
+
 /* ---------- Saved views ---------- */
 
 export type ViewId = 'all' | 'attention' | 'live' | 'uk'
