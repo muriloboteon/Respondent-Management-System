@@ -86,6 +86,9 @@ export function getProperty(id: string): PropertyDef {
   return prop
 }
 
+/** False for ids that are no longer filterable (e.g. from an older saved view). */
+export const hasProperty = (id: string) => BY_ID.has(id)
+
 /** The filter for a table column, if the column can be filtered. */
 export function propertyForColumn(columnId: string): PropertyDef | undefined {
   return PROPERTIES.find((p) => p.column === columnId)

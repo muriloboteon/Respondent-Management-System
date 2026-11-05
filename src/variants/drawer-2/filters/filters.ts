@@ -63,7 +63,8 @@ export function withMode(c: Condition, mode: Mode): Condition {
   return { ...c, mode, values: keep ? c.values : startValues(mode) }
 }
 
-const cloneCondition = (c: Condition): Condition => ({ ...c, id: newId(), values: [...c.values] })
+/** A copy with a new id: stored or saved filters always get fresh ids when applied. */
+export const cloneCondition = (c: Condition): Condition => ({ ...c, id: newId(), values: [...c.values] })
 
 /** Adds a condition, or replaces the one already on its property (one chip per property). */
 export function applyCondition(conditions: Condition[], next: Condition): Condition[] {
@@ -203,6 +204,15 @@ export function viewConditions(view: ViewId): Condition[] {
 /** Compares what the filters do, ignoring ids, value order and chips still without values. */
 function signature(conditions: Condition[]) {
   return JSON.stringify(activeConditions(conditions).map((c) => [c.prop, c.mode, [...c.values].sort()]))
+}
+
+/** Like `signature`, also ignoring the order of the chips (one chip per property). */
+export function conditionsKey(conditions: Condition[]) {
+  return JSON.stringify(
+    activeConditions(conditions)
+      .map((c) => [c.prop, c.mode, [...c.values].sort()] as const)
+      .sort((a, b) => a[0].localeCompare(b[0])),
+  )
 }
 
 /* ---------- Metrics (the strip above the table) ---------- */

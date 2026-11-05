@@ -15,7 +15,7 @@ export interface Variant {
 export const VARIANTS: Variant[] = [
   { id: 'main', label: 'Facet drawer', description: 'Filters in a side drawer: a section per property, values tick on and apply right away' },
   { id: 'popover', label: 'Popover + chips', description: 'Filters as chips above the table; one popover picks the column and its values, added with a button' },
-  { id: 'drawer-2', label: 'Facet drawer 2', description: 'Facet drawer with progressive disclosure: applied filters, a few common properties, the rest behind Add filter' },
+  { id: 'drawer-2', label: 'Facet drawer 2', description: 'Facet drawer with progressive disclosure: applied filters, a few common properties, the rest behind Add filter; plus saved views' },
 ]
 
 export function variantHref(id: string) {

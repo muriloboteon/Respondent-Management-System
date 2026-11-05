@@ -9,6 +9,9 @@ import {
   type SortingState,
 } from '@tanstack/react-table'
 import { useEffect, useRef, useState, type CSSProperties } from 'react'
+import { Toast, type ToastMessage } from './components/Toast'
+import { loadInitialSetup, useSavedViews } from './views/useSavedViews'
+import type { ViewState } from './views/views'
 import { DETAIL_MAX_W, DETAIL_MIN_W, DetailPanel } from './components/DetailPanel'
 import { Icon } from './components/Icon'
 import { PasteImportDialog } from './components/PasteImportDialog'
@@ -28,19 +31,18 @@ import {
   activeMetric,
   applyCondition,
   cellFilterValues,
+  matchesConditions,
   matchesFilters,
   metricConditions,
   newCondition,
-  viewConditions,
   type Filters,
-  type ViewId,
 } from './filters/filters'
 import { propertyForColumn } from './filters/properties'
 import { MetricStrip } from './components/MetricStrip'
 import { useMediaQuery } from './hooks/useMediaQuery'
 import { useStoredState } from './hooks/useStoredState'
 import { moveColumn, shownNeighbour } from './table/columnOrder'
-import { loadColumnSizing, saveColumnSizing } from './table/columnSizingStorage'
+import { DEFAULT_COLUMN_SIZING, isDefaultColumnSizing, loadColumnSizing, saveColumnSizing } from './table/columnSizingStorage'
 import {
   PINNED_WIDTH_SHARE,
   columns,
@@ -50,9 +52,6 @@ import {
   type RecordingKind,
 } from './table/respondentsTable'
 
-const DEFAULT_SORTING: SortingState = [{ id: 'respondent', desc: false }]
-/** Respondent is always pinned first; people can pin more columns after it from the column menu. */
-const DEFAULT_COLUMN_PINNING: ColumnPinningState = { start: ['respondent'], end: [] }
 /** Paste-from-spreadsheet import (button and page-wide paste); hidden for now. */
 const PASTE_IMPORT_ENABLED = false
 
@@ -63,11 +62,7 @@ function isEditableTarget(target: EventTarget | null) {
 
 const isNumber = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v)
 const isBoolean = (v: unknown): v is boolean => typeof v === 'boolean'
-const isIdList = (v: unknown): v is string[] => Array.isArray(v) && v.every((id) => typeof id === 'string')
-const isColumnPinning = (v: unknown): v is ColumnPinningState => {
-  const p = v as ColumnPinningState | null
-  return typeof p === 'object' && p !== null && isIdList(p.start) && isIdList(p.end) && p.start[0] === 'respondent'
-}
+const fmtCount = (n: number) => n.toLocaleString('en-US')
 /** Width of the left navigation (org rail, plus the project sidebar when open); matches --nav-w in app.css. */
 const navWidth = (projectNavOpen: boolean) => 72 + (projectNavOpen ? 240 : 0)
 /** Keeps a docked panel within its limits and leaves room for the table beside the left navigation. */
@@ -82,16 +77,37 @@ export function App() {
   /** Clipboard text for the paste dialog: null when closed, '' when opened from the button. */
   const [pasteText, setPasteText] = useState<string | null>(null)
   const [lastAdded, setLastAdded] = useState<{ ids: string[]; hidden: number } | null>(null)
-  const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS)
-  const [view, setView] = useState<ViewId>('all')
+  /** The view open when the page was left, or "All respondents" as the user last left it. */
+  const [initialSetup] = useState(loadInitialSetup)
+  const [filters, setFilters] = useState<Filters>({ query: '', conditions: initialSetup.state.conditions })
   /** The table is scrolled away from its top, so the metric strip condenses. */
   const [tableScrolled, setTableScrolled] = useState(false)
-  const [sorting, setSorting] = useState<SortingState>(DEFAULT_SORTING)
-  const [columnVisibility, setColumnVisibility] = useState<ColumnVisibilityState>({})
+  // Filters, sorting, visible columns, order and pinning make up a view (see views/views.ts);
+  // column widths are remembered on their own and never need a Save.
+  const [sorting, setSorting] = useState<SortingState>(initialSetup.state.sorting)
+  const [columnVisibility, setColumnVisibility] = useState<ColumnVisibilityState>(initialSetup.state.columnVisibility)
   const [columnSizing, setColumnSizing] = useState<ColumnSizingState>(loadColumnSizing)
-  const [columnPinning, setColumnPinning] = useStoredState('respondent-hub:drawer-2:column-pinning', DEFAULT_COLUMN_PINNING, isColumnPinning)
+  /** Respondent is always pinned first; people can pin more columns after it from the column menu. */
+  const [columnPinning, setColumnPinning] = useState<ColumnPinningState>(initialSetup.state.columnPinning)
   /** Empty keeps the definition order; ids no longer in the table are skipped and new columns go last. */
-  const [columnOrder, setColumnOrder] = useStoredState<ColumnOrderState>('respondent-hub:drawer-2:column-order', [], isIdList)
+  const [columnOrder, setColumnOrder] = useState<ColumnOrderState>(initialSetup.state.columnOrder)
+  const [toast, setToast] = useState<ToastMessage | null>(null)
+  const notify = (text: string, action?: ToastMessage['action']) => setToast({ id: Date.now(), text, action })
+  const currentView: ViewState = { conditions: filters.conditions, columnVisibility, columnOrder, columnPinning, sorting }
+  const views = useSavedViews({
+    initial: initialSetup,
+    current: currentView,
+    apply: (s) => {
+      setFilters({ query: '', conditions: s.conditions })
+      setSorting(s.sorting)
+      setColumnVisibility(s.columnVisibility)
+      setColumnOrder(s.columnOrder)
+      setColumnPinning(s.columnPinning)
+    },
+    // Respondents in the whole project a setup's filters show (the search is not part of a view).
+    count: (s) => projectCount(data.filter((r) => matchesConditions(r, s.conditions)).length, data.length, total),
+    notify,
+  })
   /** Visible width of the table's scroll area; caps how much of it pinned columns may take. */
   const [tableWidth, setTableWidth] = useState(0)
   const pinLimit = tableWidth * PINNED_WIDTH_SHARE
@@ -290,7 +306,9 @@ export function App() {
 
   const pickedCount = data.filter((r) => rowSelection[r.id]).length
   const total = TOTAL_RESPONDENTS + data.length - respondents.length
-  const metric = activeMetric(view, filters)
+  const metric = activeMetric('all', filters)
+  /** Respondents the filters and search leave, scaled from the loaded sample to the whole project. */
+  const shownCount = projectCount(table.getFilteredRowModel().rows.length, data.length, total)
 
   let menuNode = null
   if (menu?.type === 'col') {
@@ -342,6 +360,19 @@ export function App() {
           icon: 'columns',
           onSelect: () => document.querySelector<HTMLButtonElement>('[aria-controls="panel-cols"]')?.click(),
         },
+        // Widths are remembered per user without a Save; only offered once a column was resized.
+        ...(isDefaultColumnSizing(columnSizing)
+          ? []
+          : [
+              {
+                label: 'Reset column widths',
+                icon: 'arrowCounterClockwise',
+                onSelect: () => {
+                  setColumnSizing(DEFAULT_COLUMN_SIZING)
+                  notify('Column widths reset')
+                },
+              } as const,
+            ]),
       ])
       const items = groups.flatMap((group, g) => group.map((item, i) => ({ ...item, separatorBefore: g > 0 && i === 0 })))
       menuNode = (
@@ -466,9 +497,8 @@ export function App() {
           active={metric}
           condensed={tableScrolled}
           onSelect={(id) => {
-            // Like a status tab: show "All respondents" with only this metric's filter;
-            // picking the active metric again goes back to everyone.
-            setView('all')
+            // Like a status tab: only this metric's filter; picking the active metric again goes
+            // back to everyone. The other parts of the open view stay as they are.
             setFilters({ query: '', conditions: metricConditions(metric === id ? 'all' : id) })
           }}
         />
@@ -479,11 +509,7 @@ export function App() {
               total={total}
               filters={filters}
               onFiltersChange={(patch) => setFilters((prev) => ({ ...prev, ...patch }))}
-              view={view}
-              onViewChange={(v) => {
-                setView(v)
-                setFilters({ query: '', conditions: viewConditions(v) })
-              }}
+              views={views}
               panel={panel}
               onPanelChange={(p) => {
                 setMenu(null)
@@ -504,7 +530,7 @@ export function App() {
                       {lastAdded.hidden > 0 && ` · ${lastAdded.hidden} hidden by the current filters`}
                     </span>
                     {lastAdded.hidden > 0 && (
-                      <button type="button" className="btn-link" onClick={() => { setFilters(EMPTY_FILTERS); setView('all') }}>
+                      <button type="button" className="btn-link" onClick={() => setFilters(EMPTY_FILTERS)}>
                         Show all respondents
                       </button>
                     )}
@@ -517,6 +543,19 @@ export function App() {
               }
             />
             <RespondentsTable table={table} pinLimit={pinLimit} onWidthChange={setTableWidth} onScrolledChange={setTableScrolled} />
+            {/* Status bar under the grid (as in AG Grid / MUI X): rows shown and rows picked. Screen readers
+                hear the same through the status region in the list header. */}
+            <div className="table-status" aria-hidden="true">
+              <span>
+                Respondents: <strong>{fmtCount(shownCount)}</strong>
+                {shownCount !== total && <> of {fmtCount(total)}</>}
+              </span>
+              {pickedCount > 0 && (
+                <span>
+                  Selected: <strong>{fmtCount(pickedCount)}</strong>
+                </span>
+              )}
+            </div>
           </section>
 
           {filterPanel && (
@@ -578,6 +617,7 @@ export function App() {
       {playingRespondent && playing?.kind === 'self' && (
         <SelfCaptureHistoryDialog respondent={playingRespondent} onClose={() => setPlaying(null)} />
       )}
+      <Toast toast={toast} onDismiss={() => setToast(null)} />
       {pasteText !== null && (
         <PasteImportDialog initialText={pasteText} existing={data} onClose={() => setPasteText(null)} onAdd={addRespondents} />
       )}

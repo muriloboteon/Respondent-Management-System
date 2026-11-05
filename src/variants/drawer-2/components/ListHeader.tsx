@@ -1,29 +1,20 @@
 import type { ReactTable } from '@tanstack/react-table'
 import { useRef, type ReactNode } from 'react'
 import { projectCount, type Respondent } from '@data/respondents'
-import {
-  VIEWS,
-  activeConditions,
-  isComplete,
-  searchTerms,
-  type Condition,
-  type Filters,
-  type ViewId,
-} from '../filters/filters'
+import { activeConditions, isComplete, searchTerms, type Condition, type Filters } from '../filters/filters'
 import { useDismiss } from '../hooks/useDismiss'
 import type { features } from '../table/respondentsTable'
+import type { SavedViewsApi } from '../views/useSavedViews'
 import { ColumnsPanel } from './ColumnsPanel'
 import { FilterChip } from './FilterChips'
 import { BulkActions } from './BulkActions'
 import { Icon } from './Icon'
+import { SavedViewsControl } from './SavedViews'
 
 type Table = ReactTable<typeof features, Respondent>
-export type Panel = 'cols' | null
+export type Panel = 'cols' | 'views' | null
 
 const fmt = (n: number) => n.toLocaleString('en-US')
-
-/** The saved views band is hidden for now to give the table more room. */
-const SHOW_SAVED_VIEWS = false
 
 interface Props {
   table: Table
@@ -31,8 +22,8 @@ interface Props {
   total: number
   filters: Filters
   onFiltersChange: (patch: Partial<Filters>) => void
-  view: ViewId
-  onViewChange: (view: ViewId) => void
+  /** Saved views: the menu, the open view and its Save / Reset. */
+  views: SavedViewsApi
   panel: Panel
   onPanelChange: (panel: Panel) => void
   pickedCount: number
@@ -49,14 +40,14 @@ interface Props {
   onEditFilter: (prop: string) => void
 }
 
-export function ListHeader({ table, total, filters, onFiltersChange, view, onViewChange, panel, onPanelChange: setPanel, pickedCount, onRemovePicked, onPasteClick, notice, filtersOpen, onToggleFilters, onEditFilter }: Props) {
+export function ListHeader({ table, total, filters, onFiltersChange, views, panel, onPanelChange: setPanel, pickedCount, onRemovePicked, onPasteClick, notice, filtersOpen, onToggleFilters, onEditFilter }: Props) {
   const filtersBtn = useRef<HTMLButtonElement>(null)
-  const colsBtn = useRef<HTMLButtonElement>(null)
   const searchInput = useRef<HTMLInputElement>(null)
 
   useDismiss(panel !== null, '.pop-wrap', (reason) => {
+    // Escape returns focus to the button that opened the panel.
+    if (reason === 'escape') document.querySelector<HTMLElement>(`[aria-controls="panel-${panel}"]`)?.focus()
     setPanel(null)
-    if (reason === 'escape') colsBtn.current?.focus()
   })
 
   const conditions = filters.conditions
@@ -74,23 +65,11 @@ export function ListHeader({ table, total, filters, onFiltersChange, view, onVie
   }
 
   return (
-    // Two bands split by full-width dividers: saved views (hidden for now), and the filters band, one row:
-    // the search, the Filters button and the filter chips on the left; the result count and Columns on the right.
+    // One band, one row: the search, the Filters button and the filter chips on the left;
+    // Views and Columns on the right. Counts are in the status bar under the table.
     // While rows are picked, bulk actions take the place of the filters. The import notice joins as an extra band.
     // The page title sits above the card.
     <div className="list-head">
-      {SHOW_SAVED_VIEWS && (
-        <div className="head-band band-tools">
-          <div className="tabs" role="group" aria-label="Saved views">
-            {(Object.keys(VIEWS) as ViewId[]).map((id) => (
-              <button key={id} type="button" className="tab" aria-pressed={view === id} onClick={() => onViewChange(id)}>
-                {VIEWS[id].label}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-
       <span className="sr-only" role="status">
         {pickedCount > 0 ? `${pickedCount} selected` : hasFilters ? `${fmt(resultCount)} of ${fmt(total)} respondents match` : ''}
       </span>
@@ -160,17 +139,11 @@ export function ListHeader({ table, total, filters, onFiltersChange, view, onVie
         )}
 
         <div className="tools">
-          {/* The result of the filters and the search; announced by the status region above */}
-          {pickedCount === 0 && hasFilters && (
-            <span className="band-end">
-              <span className="result-count" aria-hidden="true">
-                <strong>{fmt(resultCount)}</strong> of {fmt(total)} respondents
-              </span>
-            </span>
-          )}
+          {/* The result count lives in the status bar under the table; the status region above announces it. */}
+          {/* Views and Columns sit together: both set up how the table looks */}
+          <SavedViewsControl views={views} open={panel === 'views'} onOpenChange={(open) => setPanel(open ? 'views' : null)} />
           <div className="pop-wrap">
             <button
-              ref={colsBtn}
               type="button"
               className="btn btn-sm btn-outline btn-icon"
               aria-label="Columns"

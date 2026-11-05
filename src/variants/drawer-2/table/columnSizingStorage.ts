@@ -18,6 +18,9 @@ function sameSizing(a: ColumnSizingState, b: ColumnSizingState) {
   return keys.length === Object.keys(b).length && keys.every((k) => a[k] === b[k])
 }
 
+/** No column was resized (or the widths were reset). */
+export const isDefaultColumnSizing = (sizing: ColumnSizingState) => sameSizing(sizing, DEFAULT_COLUMN_SIZING)
+
 /** Saved widths for known columns, or the defaults when nothing valid is stored. */
 export function loadColumnSizing(): ColumnSizingState {
   try {
