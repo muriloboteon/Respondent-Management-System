@@ -548,7 +548,10 @@ svg.icon-sm { width: 12px; height: 12px; }
   display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--sp-2) var(--sp-3);
   padding: var(--sp-3) var(--sp-4); border-bottom: 1px solid var(--foreground-border);
 }
-.band-filters { padding-block: var(--sp-2); min-height: 45px; }
+/* The same 12px on every side, matching the card's 12px corner: with a gap as wide as the corner,
+   the search field's and buttons' corners sit evenly inside it (8px above but 16px beside made the
+   top-left corner look cramped). */
+.band-filters { padding: var(--sp-3); min-height: 45px; }
 .band-end { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-1) var(--sp-3); margin-left: auto; }
 .title-group { display: flex; align-items: center; gap: var(--sp-2); }
 .page-actions { display: flex; align-items: center; gap: var(--sp-2); }
