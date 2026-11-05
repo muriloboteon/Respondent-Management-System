@@ -633,11 +633,42 @@ svg.icon-sm { width: 12px; height: 12px; }
   padding: var(--sp-1-5) var(--sp-2) var(--sp-1-5) var(--sp-4);
 }
 
-/* Bulk actions take the applied filters' place on the left of the filters band */
-.bulk-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); min-width: 0; }
-.bulk-count { display: inline-flex; align-items: center; gap: var(--sp-0-5); white-space: nowrap; }
-.bulk-count .count { font-size: var(--fs-sm); font-weight: 600; color: var(--foreground-primary); }
-.bulk-sep { flex: none; width: 1px; height: 20px; background: var(--foreground-border); }
+/* Bulk actions: a floating bar (as in Linear) at the bottom, centred on the table card and just
+   above its status bar (BulkActions sets --bar-x and --bar-bottom). A dark plum surface sets it
+   apart from the page; its buttons are light on dark. The table gets room below its last row so
+   the bar never hides it. */
+.bulk-bar {
+  position: fixed; z-index: 35; left: var(--bar-x, 50%); bottom: var(--bar-bottom, 16px); transform: translateX(-50%);
+  display: flex; align-items: center; gap: var(--sp-1-5); max-width: calc(100vw - 32px);
+  padding: var(--sp-2) var(--sp-2) var(--sp-2) var(--sp-4);
+  border-radius: var(--radius-lg); background: var(--background-primary); color: var(--foreground-label);
+  box-shadow: 0 12px 32px rgba(38, 0, 79, 0.28), 0 2px 8px rgba(38, 0, 79, 0.16);
+  /* Leaving (and its start before entering): 56px lower and faded out. The exit eases in, 200ms. */
+  opacity: 0; translate: 0 56px;
+  transition: translate .2s cubic-bezier(0.4, 0, 1, 1), opacity .2s cubic-bezier(0.4, 0, 1, 1);
+}
+/* Entering: slides up and settles with a strong ease-out, 280ms; it is fully visible early on.
+   Transitions (not keyframes), so a new pick mid-exit turns it around from where it is. */
+.bulk-bar[data-state="open"] {
+  opacity: 1; translate: 0 0;
+  transition: translate .28s cubic-bezier(0.16, 1, 0.3, 1), opacity .17s ease-out;
+}
+.bulk-count { display: inline-flex; align-items: center; gap: var(--sp-1); white-space: nowrap; }
+.bulk-count .count { font-size: var(--fs-sm); font-weight: 600; color: var(--white); font-variant-numeric: tabular-nums; }
+.bulk-sep { flex: none; width: 1px; height: 20px; margin-inline: var(--sp-1); background: rgba(255, 255, 255, 0.2); }
+.bulk-bar .bulk-clear { color: var(--plum-200); }
+.bulk-bar .bulk-clear:hover { background: rgba(255, 255, 255, 0.12); color: var(--white); }
+.bulk-bar .bulk-clear:focus-visible, .bulk-btn:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--orchid-500); }
+.bulk-btn { border-color: rgba(255, 255, 255, 0.24); color: var(--white); }
+.bulk-btn .icon { color: var(--plum-200); }
+.bulk-btn:hover:not(:disabled), .bulk-btn[aria-expanded="true"] { background: rgba(255, 255, 255, 0.12); border-color: rgba(255, 255, 255, 0.4); }
+.bulk-btn.bulk-danger { border-color: transparent; color: var(--coral-200); }
+.bulk-btn.bulk-danger .icon { color: inherit; }
+.bulk-btn.bulk-danger:hover:not(:disabled) { background: rgba(242, 105, 90, 0.18); border-color: transparent; color: var(--coral-100); }
+.list-card:has(.bulk-bar) .table-scroll { padding-bottom: 72px; }
+@media (prefers-reduced-motion: reduce) {
+  .bulk-bar, .bulk-bar[data-state="open"] { translate: 0 0; transition: opacity .15s ease; }
+}
 
 /* Table — DS "Table / Table Header Row / Table Row / Table Cell" */
 .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
@@ -1064,7 +1095,8 @@ body.is-resizing { cursor: col-resize; user-select: none; }
   .band-tools { flex-direction: column; align-items: stretch; }
   .tools .pop-wrap:has(> .btn-icon), .tools > .btn-icon { flex: none; }
   .tools, .band-end { margin-left: 0; }
-  .bulk-actions { width: 100%; }
+  /* Phones: the bar spans the width, left to right */
+  .bulk-bar { left: var(--sp-2); right: var(--sp-2); transform: none; max-width: none; overflow-x: auto; }
   .sticky { gap: var(--sp-2); padding-left: var(--sp-3); }
   .td { --cell-px: var(--sp-3); }
   .th { padding-left: var(--sp-3); }

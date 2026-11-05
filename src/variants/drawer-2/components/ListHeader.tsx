@@ -6,7 +6,6 @@ import type { features } from '../table/respondentsTable'
 import type { SavedViewsApi } from '../views/useSavedViews'
 import { AiSearch } from './AiSearch'
 import { FilterChip } from './FilterChips'
-import { BulkActions } from './BulkActions'
 import { Icon } from './Icon'
 import { ViewsButton } from './SavedViews'
 
@@ -28,8 +27,6 @@ interface Props {
   tool: Tool | null
   onToggleTool: (tool: Tool) => void
   pickedCount: number
-  /** Asks to remove the picked respondents from the project. */
-  onRemovePicked: () => void
   /** Omit to hide the "Paste from Excel" button. */
   onPasteClick?: () => void
   /** Confirmation shown after adding respondents. */
@@ -44,7 +41,7 @@ interface Props {
   aiBusy: boolean
 }
 
-export function ListHeader({ table, total, filters, onFiltersChange, views, tool, onToggleTool, pickedCount, onRemovePicked, onPasteClick, notice, filtersOpen, onToggleFilters, onEditFilter, onAskAi, aiBusy }: Props) {
+export function ListHeader({ table, total, filters, onFiltersChange, views, tool, onToggleTool, pickedCount, onPasteClick, notice, filtersOpen, onToggleFilters, onEditFilter, onAskAi, aiBusy }: Props) {
   const filtersBtn = useRef<HTMLButtonElement>(null)
 
   const conditions = filters.conditions
@@ -64,7 +61,7 @@ export function ListHeader({ table, total, filters, onFiltersChange, views, tool
     // One band, one row: what is applied on the left (the search and the filter chips that follow
     // it, which the AI search also fills); the tools on the right (Filters, Views, Columns), each
     // opening a panel. Counts are in the status bar under the table.
-    // While rows are picked, bulk actions take the place of the chips. The import notice joins as an extra band.
+    // While rows are picked, bulk actions float over the table. The import notice joins as an extra band.
     // The page title sits above the card.
     <div className="list-head">
       <span className="sr-only" role="status">
@@ -72,9 +69,8 @@ export function ListHeader({ table, total, filters, onFiltersChange, views, tool
       </span>
       <div className="head-band band-filters">
         <AiSearch query={filters.query} onQueryChange={(query) => onFiltersChange({ query })} onAsk={onAskAi} busy={aiBusy} />
-        {pickedCount > 0 ? (
-          <BulkActions count={pickedCount} onClear={() => table.resetRowSelection(true)} onRemove={onRemovePicked} />
-        ) : activeCount > 0 ? (
+        {/* Bulk actions float over the table (see BulkActions), so the chips stay while rows are picked. */}
+        {activeCount > 0 ? (
           // The applied filters as chips; a chip's text opens its section in the drawer.
           <div className="chips-row" role="group" aria-label="Applied filters">
             {conditions.filter(isComplete).map((c) => (

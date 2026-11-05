@@ -25,6 +25,7 @@ import { OrgRail } from './components/OrgRail'
 import { ProjectSidebar, ProjectSidebarToggle } from './components/ProjectSidebar'
 import { RespondentsTable } from './components/RespondentsTable'
 import { RemoveConfirm } from './components/RemoveConfirm'
+import { BulkActions } from './components/BulkActions'
 import { SelfCaptureHistoryDialog } from './components/SelfCaptureHistoryDialog'
 import { TechCheckDialog } from './components/TechCheckDialog'
 import { ASSIGN_ITEMS, SEGMENT_ITEMS } from './components/respondentActions'
@@ -103,8 +104,9 @@ export function App() {
   filtersRef.current = filters
   /**
    * Turns a description into filters over the current ones (a property already filtered is
-   * replaced), clears the search and offers Undo. When nothing in it maps to a filter, the text
-   * stays in the search as typed.
+   * replaced) and clears the search; the new chips are the confirmation. A toast shows only when
+   * part of the text couldn't be used. When nothing in it maps to a filter, the text stays in the
+   * search as typed.
    */
   const askAi = (prompt: string) => {
     setAiBusy(true)
@@ -116,9 +118,8 @@ export function App() {
         notify(describeInterpretation(result))
         return
       }
-      const before = filtersRef.current
-      setFilters({ query: '', conditions: applyInterpretation(before.conditions, result) })
-      notify(describeInterpretation(result), { label: 'Undo', onClick: () => setFilters({ query: '', conditions: before.conditions }) })
+      setFilters({ query: '', conditions: applyInterpretation(filtersRef.current.conditions, result) })
+      if (result.unmatched.length || result.ambiguous.length || result.orAcross) notify(describeInterpretation(result))
     }, 700)
   }
   const currentView: ViewState = { conditions: filters.conditions, columnVisibility, columnOrder, columnPinning, sorting }
@@ -559,7 +560,6 @@ export function App() {
               onAskAi={askAi}
               aiBusy={aiBusy}
               pickedCount={pickedCount}
-              onRemovePicked={() => askRemove(data.filter((r) => rowSelection[r.id]).map((r) => r.id))}
               onPasteClick={PASTE_IMPORT_ENABLED ? () => setPasteText('') : undefined}
               notice={
                 lastAdded && (
@@ -583,19 +583,21 @@ export function App() {
               }
             />
             <RespondentsTable table={table} pinLimit={pinLimit} onWidthChange={setTableWidth} onScrolledChange={setTableScrolled} />
-            {/* Status bar under the grid (as in AG Grid / MUI X): rows shown and rows picked. Screen readers
-                hear the same through the status region in the list header. */}
+            {/* Status bar under the grid (as in AG Grid / MUI X): rows shown. The picked count is on the
+                floating bulk actions bar. Screen readers hear both through the status region in the list header. */}
             <div className="table-status" aria-hidden="true">
               <span>
                 Respondents: <strong>{fmtCount(shownCount)}</strong>
                 {shownCount !== total && <> of {fmtCount(total)}</>}
               </span>
-              {pickedCount > 0 && (
-                <span>
-                  Selected: <strong>{fmtCount(pickedCount)}</strong>
-                </span>
-              )}
             </div>
+            {/* Floats at the bottom, centred on this card, while rows are picked; it slides in and
+                out by itself, so it stays rendered with no rows picked */}
+            <BulkActions
+              count={pickedCount}
+              onClear={() => table.resetRowSelection(true)}
+              onRemove={() => askRemove(data.filter((r) => rowSelection[r.id]).map((r) => r.id))}
+            />
           </section>
 
           {filterPanel && (

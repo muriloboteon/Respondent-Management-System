@@ -279,7 +279,12 @@ const raw: RawRespondent[] = [
   { id: 'r30', pid: 'R-1030', name: 'Victor Silva', src: 'client', email: 'victor.silva@example.com', phone: '+1 555 0130', segments: seg('Male'), ai: M('Completed', 'Oct 16'), live: M('Completed', 'Oct 20'), tech: 'Passed', consent: 'Signed', addedOn: '2026-09-04', lastActivity: '2026-10-20' },
 ]
 
-export const TOTAL_RESPONDENTS = 1760
+/**
+ * Respondents in the project: exactly the rows in the table, so every count on the page (metrics,
+ * status bar, filter counts, views) is the real number of rows. With the total equal to the sample,
+ * `projectCount` returns counts as they are.
+ */
+export const TOTAL_RESPONDENTS = raw.length
 
 /** "Today" for the sample data, so relative date filters stay meaningful. */
 export const TODAY = '2026-10-21'
@@ -371,7 +376,9 @@ export const limitPII = false
 
 /**
  * Scales a count from the loaded sample to the whole project, so every count on the page
- * (metrics, filter results) uses the same rule. Never rounds a match down to zero.
+ * (metrics, filter results) uses the same rule. Never rounds a match down to zero. The project
+ * total is now the sample itself (see TOTAL_RESPONDENTS), so counts come back unchanged; kept in
+ * case the prototype shows a larger project again.
  */
 export function projectCount(sampleCount: number, sampleSize: number, total: number) {
   if (sampleCount === 0) return 0
