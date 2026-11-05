@@ -124,22 +124,10 @@ export function ListHeader({ table, total, filters, onFiltersChange, view, onVie
         {pickedCount > 0 ? (
           <BulkActions count={pickedCount} onClear={() => table.resetRowSelection(true)} onRemove={onRemovePicked} />
         ) : (
-          // The Filters button opens the drawer (in the detail panel's place); the applied filters
-          // follow it as chips, and a chip's text opens its section there.
-          <div className="chips-row" role="group" aria-label="Filters">
-            <button
-              ref={filtersBtn}
-              type="button"
-              className="btn btn-sm btn-outline add-filter"
-              data-filters-toggle=""
-              aria-expanded={filtersOpen}
-              aria-controls="filter-panel"
-              onClick={onToggleFilters}
-            >
-              <Icon name="funnel" />
-              Filters
-              {activeCount > 0 && <span className="filter-count">{activeCount}</span>}
-            </button>
+          activeCount > 0 && (
+          // The applied filters as chips after the search; a chip's text opens its section in the
+          // drawer (the Filters button sits with Columns, on the right).
+          <div className="chips-row" role="group" aria-label="Applied filters">
             {conditions.filter(isComplete).map((c) => (
               <FilterChip key={c.id} condition={c} onEdit={() => onEditFilter(c.prop)} onRemove={() => removeFilter(c.id)} />
             ))}
@@ -157,6 +145,7 @@ export function ListHeader({ table, total, filters, onFiltersChange, view, onVie
               </button>
             )}
           </div>
+          )
         )}
 
         <div className="tools">
@@ -168,6 +157,20 @@ export function ListHeader({ table, total, filters, onFiltersChange, view, onVie
               </span>
             </span>
           )}
+          {/* Opens the filters drawer, in the detail panel's place */}
+          <button
+            ref={filtersBtn}
+            type="button"
+            className="btn btn-sm btn-outline add-filter"
+            data-filters-toggle=""
+            aria-expanded={filtersOpen}
+            aria-controls="filter-panel"
+            onClick={onToggleFilters}
+          >
+            <Icon name="funnel" />
+            Filters
+            {activeCount > 0 && <span className="filter-count">{activeCount}</span>}
+          </button>
           <div className="pop-wrap">
             <button
               ref={colsBtn}
