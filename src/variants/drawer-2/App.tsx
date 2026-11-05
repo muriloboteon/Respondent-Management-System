@@ -466,10 +466,8 @@ export function App() {
           <div className="page-actions">
             <button
               type="button"
-              className="btn btn-outline btn-icon"
+              className="btn btn-outline"
               data-menu-anchor="page:more"
-              aria-label="More actions"
-              title="More actions"
               aria-haspopup="menu"
               aria-expanded={pageMenuOpen}
               onClick={() => {
@@ -477,7 +475,8 @@ export function App() {
                 setPageMenuOpen(!pageMenuOpen)
               }}
             >
-              <Icon name="dotsVertical" />
+              More actions
+              <Icon name="caretDown" small />
             </button>
             <button type="button" className="btn btn-primary">
               <Icon name="upload" />
@@ -604,7 +603,6 @@ export function App() {
           {selected && !filterPanel && !tool && (
             <DetailPanel
               r={selected}
-              all={data}
               asDialog={asDialog || modalOpen}
               resizable={docked}
               width={panelWidth}

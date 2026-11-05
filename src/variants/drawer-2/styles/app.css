@@ -91,6 +91,9 @@ svg.icon-sm { width: 12px; height: 12px; }
 .btn-destructive:hover:not(:disabled) { background-image: linear-gradient(rgba(0, 0, 0, 0.1), rgba(0, 0, 0, 0.1)); }
 .btn-ghost.btn-danger { color: var(--coral-700); }
 .btn-ghost.btn-danger:hover:not(:disabled) { background: var(--destructive-soft); color: var(--coral-700); }
+/* Danger outline: the outline button with red text; the hover turns red instead of orchid */
+.btn-outline.btn-danger { color: var(--coral-700); }
+.btn-outline.btn-danger:hover:not(:disabled) { background: var(--destructive-soft); border-color: var(--coral-700); color: var(--coral-700); }
 /* Link: underlined foreground text, orchid-600 on hover */
 .btn-link {
   min-height: 32px; padding: 0 var(--sp-1); border: 0; background: none;
@@ -327,7 +330,8 @@ svg.icon-sm { width: 12px; height: 12px; }
 .sheet-handle { display: none; }
 
 .menu {
-  position: fixed; z-index: 40; min-width: 200px; max-width: calc(100vw - 32px);
+  /* Above the side panel, the modal and the bottom sheet (50–60), so their menus show over them */
+  position: fixed; z-index: 65; min-width: 200px; max-width: calc(100vw - 32px);
   padding: var(--sp-1); display: flex; flex-direction: column;
   background: var(--surface-background); border: 1px solid var(--foreground-border);
   border-radius: var(--radius-md); box-shadow: var(--shadow-md);
@@ -1016,6 +1020,12 @@ body.is-resizing { cursor: col-resize; user-select: none; }
 .detail h2 { margin: 0; font-size: var(--fs-2xl); line-height: 32px; font-weight: 600; color: var(--foreground-primary); letter-spacing: -0.3px; overflow-wrap: anywhere; }
 .detail-head > .tag { white-space: normal; }
 .detail-actions { display: flex; flex-wrap: wrap; gap: var(--sp-2); padding-top: var(--sp-1); }
+/* Expanded into the modal: the actions move to the right, level with the name */
+.is-detail-modal .detail-head {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: var(--sp-4); row-gap: var(--sp-2);
+}
+.is-detail-modal .detail-head > * { grid-column: 1; justify-self: start; }
+.is-detail-modal .detail-head > .detail-actions { grid-column: 2; grid-row: 1; align-self: center; flex-wrap: nowrap; padding-top: 0; }
 
 /* One column of boxed sections: Details, Segments, Sessions and activities, then the checks */
 .detail-body { display: flex; flex-direction: column; gap: var(--sp-3); padding: var(--sp-5); min-width: 0; }
@@ -1055,16 +1065,21 @@ body.is-resizing { cursor: col-resize; user-select: none; }
 /* Long labels stop at two lines; the full name is the tooltip */
 .field-row dt { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; color: var(--foreground-secondary-muted); }
 .field-row dd { position: relative; display: flex; align-items: center; gap: var(--sp-1); min-width: 0; min-height: 32px; margin: 0 0 0 calc(var(--sp-1-5) * -1); padding: 0 36px 0 var(--sp-1-5); border-radius: var(--radius-sm); overflow-wrap: anywhere; }
+/* Only editable rows keep room on the right for the pencil */
+.field-row:not(.editable) dd { padding-right: 0; }
+/* Long tag values wrap inside the row instead of running past its edge */
+.field-row dd > .chip-list { min-width: 0; }
+.field-row .tag { white-space: normal; overflow-wrap: anywhere; }
 .field-row.editable dd:hover { background: var(--background-secondary); }
 .field-edit { position: absolute; right: 2px; top: 50%; width: 28px; height: 28px; transform: translateY(-50%); opacity: 0; }
 .field-row.editable dd:hover .field-edit, .field-edit:focus-visible { opacity: 1; }
-/* Narrow panel: the label sits above its value, so the value gets the full width.
-   Label beside value only once the panel is wide enough (520px and up). */
-@container detail (max-width: 519.98px) {
-  .field-row { display: flex; flex-direction: column; align-items: stretch; gap: 0; min-height: 0; padding: var(--sp-1) 0; }
-  .field-row dt { font-size: var(--fs-xs); line-height: 16px; }
-  .field-row dd { min-height: 28px; }
-}
+/* Respondent panel: the label sits above its value (at any panel width), same size as the value.
+   Expanded into the modal, the label goes beside its value. */
+.detail-body .field-row { display: flex; flex-direction: column; align-items: stretch; gap: 0; min-height: 0; padding: var(--sp-1) 0; }
+.detail-body .field-row dt { line-height: 20px; }
+.detail-body .field-row dd { min-height: 28px; }
+.is-detail-modal .detail-body .field-row { display: grid; align-items: center; gap: var(--sp-3); min-height: 36px; padding: 0; }
+.is-detail-modal .detail-body .field-row dd { min-height: 32px; }
 .field-note { display: inline-flex; align-items: flex-start; gap: var(--sp-1-5); font-size: var(--fs-xs); line-height: 16px; color: var(--foreground-secondary-muted); }
 .field-note .icon { margin-top: 2px; }
 .btn-add { display: inline-flex; align-items: center; gap: var(--sp-1); min-height: 32px; margin-top: var(--sp-1); margin-left: calc(var(--sp-1-5) * -1); padding: 0 var(--sp-1-5); border: 0; border-radius: var(--radius-sm); background: none; color: var(--foreground-accent); font-weight: 500; }

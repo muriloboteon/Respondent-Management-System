@@ -1,7 +1,7 @@
 import { useState, type ReactNode, type Ref } from 'react'
+import { createPortal } from 'react-dom'
 import {
   SEGMENTS,
-  dupInfo,
   limitPII,
   sourceLabel,
   timezoneLabel,
@@ -65,6 +65,7 @@ function detailFields(r: Respondent, hideContact: boolean): { shown: Field[]; em
   const empty: string[] = []
   const add = (label: string, value: ReactNode | null) => (value === null ? empty.push(label) : shown.push({ label, value }))
 
+  add('ID', r.pid)
   if (hideContact) {
     add(
       'Contact',
@@ -155,7 +156,6 @@ function WorkItem({ label, m, kind }: { label: string; m: MethodStatus; kind: 'a
 
 interface Props {
   r: Respondent
-  all: readonly Respondent[]
   /** True when the panel slides over the page (narrow screens). */
   asDialog: boolean
   /** True when the docked panel can be resized (wide screens). */
@@ -176,10 +176,9 @@ interface Props {
 }
 
 export function DetailPanel({
-  r, all, asDialog, resizable, width, hidden, closeRef, prevId, nextId, onNavigate, onWidthChange, expanded, onToggleExpand, onClose, onRemove,
+  r, asDialog, resizable, width, hidden, closeRef, prevId, nextId, onNavigate, onWidthChange, expanded, onToggleExpand, onClose, onRemove,
 }: Props) {
   const [assignOpen, setAssignOpen] = useState(false)
-  const dup = dupInfo(r, all)
   const hideContact = r.src === 'rio' || limitPII
   const { shown, empty } = detailFields(r, hideContact)
 
@@ -225,15 +224,9 @@ export function DetailPanel({
 
       <div className="detail-scroll">
         <header className="detail-head">
-          <span className="crumbs">
-            <span>{sourceLabel(r)}</span>
-            <span aria-hidden="true">/</span>
-            <strong>{r.pid}</strong>
-          </span>
           <h2 id="detail-h">{r.name}</h2>
-          {dup && <Tag variant="warn">{dup.note}</Tag>}
-          {/* Same actions as the bulk actions and the row menu, minus Segment (the Segments
-              section below edits them); Export and Remove are icon-only here. */}
+          {/* Same actions as the bulk actions and the row menu, minus Segment (segments
+              aren't changed from this panel); Export and Remove are icon-only here. */}
           <span className="detail-actions">
             <button
               type="button"
@@ -249,7 +242,7 @@ export function DetailPanel({
             <button type="button" className="btn btn-sm btn-outline btn-icon" aria-label="Export to CSV" title="Export to CSV">
               <Icon name="download" />
             </button>
-            <button type="button" className="btn btn-sm btn-ghost btn-danger btn-icon" aria-label="Remove from project" title="Remove from project" onClick={onRemove}>
+            <button type="button" className="btn btn-sm btn-outline btn-danger btn-icon" aria-label="Remove from project" title="Remove from project" onClick={onRemove}>
               <Icon name="trash" />
             </button>
           </span>
@@ -278,12 +271,9 @@ export function DetailPanel({
 
           <Fold title="Segments" boxed>
             <dl className="field-grid">
-              {segmentFields(r).map((f) => <FieldRow key={f.label} label={f.label} title={f.title} editable>{f.value}</FieldRow>)}
+              {/* Read-only here: segments aren't edited or added from the respondent panel */}
+              {segmentFields(r).map((f) => <FieldRow key={f.label} label={f.label} title={f.title}>{f.value}</FieldRow>)}
             </dl>
-            <button type="button" className="btn-add">
-              <Icon name="plus" small />
-              Add segment
-            </button>
           </Fold>
 
           <Fold title="Sessions and activities" boxed>
@@ -309,16 +299,19 @@ export function DetailPanel({
         </div>
       </div>
 
-      {assignOpen && (
-        <FloatingMenu
-          anchorKey="detail-assign"
-          label={`Assign ${r.name}`}
-          align="start"
-          width={200}
-          items={ASSIGN_ITEMS}
-          onClose={() => setAssignOpen(false)}
-        />
-      )}
+      {/* In the page's body: the modal's transform would otherwise trap the fixed menu inside it */}
+      {assignOpen &&
+        createPortal(
+          <FloatingMenu
+            anchorKey="detail-assign"
+            label={`Assign ${r.name}`}
+            align="start"
+            width={200}
+            items={ASSIGN_ITEMS}
+            onClose={() => setAssignOpen(false)}
+          />,
+          document.body,
+        )}
     </aside>
   )
 }
