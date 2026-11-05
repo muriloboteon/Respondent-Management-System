@@ -7,7 +7,8 @@ const here = (path: string) => fileURLToPath(new URL(path, import.meta.url))
 
 /**
  * Prototype variants: each folder under variants/ is its own page (variants/<id>/index.html) with
- * its own copy of the app in src/variants/<id>. The build includes every one of them.
+ * its own copy of the app (src/variants/<id>, or src/ for main). The build includes every one of
+ * them, plus the root page, which only opens the first tab.
  */
 const variantPages = Object.fromEntries(
   readdirSync(here('./variants'), { withFileTypes: true })
@@ -25,7 +26,8 @@ export default defineConfig({
     },
   },
   build: {
-    rollupOptions: { input: { main: here('./index.html'), ...variantPages } },
+    // "root", not "main": the main variant's page is variants/main/index.html.
+    rollupOptions: { input: { root: here('./index.html'), ...variantPages } },
   },
   server: {
     // The project lives in a OneDrive folder, where native file events can be missed and

@@ -2,8 +2,8 @@
  * The prototype's variants, in tab order. Each one is a separate page with its own copy of the
  * app (see scripts/new-variant.mjs); they share only the sample data in src/data.
  *
- * - `main` lives in src/ and is served at the site root.
- * - Every other variant lives in src/variants/<id>/ and is served at /variants/<id>/.
+ * - `main` lives in src/; every other variant lives in src/variants/<id>/.
+ * - Each is served at /variants/<id>/ (main too). The site root opens the first tab.
  */
 export interface Variant {
   id: string
@@ -22,5 +22,5 @@ export const VARIANTS: Variant[] = [
 ]
 
 export function variantHref(id: string) {
-  return id === 'main' ? '/' : `/variants/${id}/`
+  return `/variants/${id}/`
 }

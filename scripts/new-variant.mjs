@@ -43,7 +43,7 @@ for (const file of walk(target).filter((p) => /\.(ts|tsx)$/.test(p))) {
 }
 
 mkdirSync(join('variants', id), { recursive: true })
-const html = readFileSync('index.html', 'utf8').replace('/src/main.tsx', `/src/${target.replaceAll('\\', '/').slice(4)}/main.tsx`)
+const html = readFileSync('variants/main/index.html', 'utf8').replace('/src/main.tsx', `/src/${target.replaceAll('\\', '/').slice(4)}/main.tsx`)
 writeFileSync(join('variants', id, 'index.html'), html)
 
 const registry = 'src/prototype/variants.ts'
