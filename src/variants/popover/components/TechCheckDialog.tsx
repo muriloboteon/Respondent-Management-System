@@ -129,7 +129,6 @@ export function TechCheckDialog({ respondent: r, onClose }: { respondent: Respon
         <div className="tech-main">
           <h3 className="tech-name">
             {r.name}
-            <span className="tech-pid">{r.pid}</span>
           </h3>
           {result && (
             <section aria-label="Tech check results">

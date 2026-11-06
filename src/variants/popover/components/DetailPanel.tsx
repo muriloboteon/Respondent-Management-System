@@ -217,11 +217,6 @@ export function DetailPanel({
 
       <div className="detail-scroll">
         <header className="detail-head">
-          <span className="crumbs">
-            <span>{sourceLabel(r)}</span>
-            <span aria-hidden="true">/</span>
-            <strong>{r.pid}</strong>
-          </span>
           <span className="detail-title">
             <span className={`avatar ${r.avatarClass}`} aria-hidden="true">{r.initials}</span>
             <h2 id="detail-h">{r.name}</h2>

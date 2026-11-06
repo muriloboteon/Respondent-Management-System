@@ -129,7 +129,7 @@ export function searchTerms(query: string): string[] {
 export function matchesFilters(r: Respondent, f: Filters): boolean {
   const terms = searchTerms(f.query)
   if (terms.length) {
-    const hay = `${r.name} ${r.pid} ${r.email ?? ''} ${r.rio ?? ''}`.toLowerCase()
+    const hay = `${r.name} ${r.email ?? ''} ${r.rio ?? ''}`.toLowerCase()
     if (!terms.some((t) => hay.includes(t))) return false
   }
   return matchesConditions(r, f.conditions)

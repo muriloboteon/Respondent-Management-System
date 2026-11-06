@@ -193,8 +193,8 @@ export function AiSearch({ query, onQueryChange, onAsk, busy, failure, onDismiss
               <span className="ai-fail-text">
                 {failure.ambiguous.length ? (
                   <>
-                    <strong>“{failure.ambiguous.join('”, “')}” could mean self captures or tech check</strong>
-                    <span>Say which one, for example “self captures {failure.ambiguous[0]}”.</span>
+                    <strong>“{failure.ambiguous.join('”, “')}” could mean async activities or tech check</strong>
+                    <span>Say which one, for example “async activities {failure.ambiguous[0]}”.</span>
                   </>
                 ) : (
                   <>

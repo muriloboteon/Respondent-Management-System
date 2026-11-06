@@ -65,7 +65,6 @@ function detailFields(r: Respondent, hideContact: boolean): { shown: Field[]; em
   const empty: string[] = []
   const add = (label: string, value: ReactNode | null) => (value === null ? empty.push(label) : shown.push({ label, value }))
 
-  add('ID', r.pid)
   if (hideContact) {
     add(
       'Contact',

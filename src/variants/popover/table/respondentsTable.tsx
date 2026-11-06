@@ -199,12 +199,12 @@ function RespondentCell({ row, meta }: { row: RespondentRow; meta: RespondentTab
         tabIndex={-1}
         checked={row.getIsSelected()}
         onChange={row.getToggleSelectedHandler()}
-        aria-label={`Select ${r.name}, ${r.pid}`}
+        aria-label={`Select ${r.name}`}
       />
       <span className="who">
         {inputProps ? (
           <>
-            <input {...inputProps} type="text" aria-label={`Name of ${r.name}, ${r.pid}`} />
+            <input {...inputProps} type="text" aria-label={`Name of ${r.name}`} />
             {hint}
           </>
         ) : (
@@ -230,7 +230,7 @@ function RespondentCell({ row, meta }: { row: RespondentRow; meta: RespondentTab
         data-menu-anchor={`row:${r.id}`}
         aria-haspopup="menu"
         aria-expanded={menuOpen}
-        aria-label={`Actions for ${r.name}, ${r.pid}`}
+        aria-label={`Actions for ${r.name}`}
         onClick={() => meta.onToggleMenu({ type: 'row', id: r.id })}
       >
         <Icon name="dotsVerticalBold" />
@@ -253,12 +253,12 @@ function MediaIcon({ rest, hover }: { rest: IconName; hover: IconName }) {
 function SelfCaptureCell({ r, meta }: { r: Respondent; meta: RespondentTableMeta }) {
   const captures = selfCaptures(r)
   if (!captures.length) return null
-  const tip = captures.length === 1 ? `Self capture completed ${captures[0].completedOn}`.trim() : `${captures.length} self captures completed`
+  const tip = captures.length === 1 ? `Async activity completed ${captures[0].completedOn}`.trim() : `${captures.length} async activities completed`
   return (
     <IconButton
       className="media-btn"
       tabIndex={-1}
-      label={`Open self captures for ${r.name} (${tip})`}
+      label={`Open async activities for ${r.name} (${tip})`}
       tip={tip}
       onClick={() => meta.onPlay(r.id, 'self')}
     >
@@ -472,7 +472,7 @@ export const columns = helper.columns([
   // Status columns with icon headers, side by side after Role.
   helper.accessor((r) => r.liveDoc, {
     id: 'live',
-    header: 'Self Captures',
+    header: 'Async activities',
     sortFn: byStatusRank,
     size: ICON_COLUMN_SIZE,
     meta: { kind: 'int', icon: 'videoCamera' },
@@ -524,14 +524,6 @@ export const columns = helper.columns([
     size: ICON_COLUMN_SIZE,
     meta: { kind: 'int', icon: 'starOutline' },
     cell: ({ row, table }) => <FavoriteCell r={row.original} meta={table.options.meta!} />,
-  }),
-  helper.accessor((r) => r.pid, {
-    id: 'pid',
-    header: 'ID',
-    sortFn: byText,
-    size: 110,
-    meta: { kind: 'std' },
-    cell: ({ getValue }) => <TextCell value={getValue()} />,
   }),
   helper.accessor((r) => (r.src === 'rio' ? '—' : limitPII ? 'Hidden' : (r.email ?? '—')), {
     id: 'email',

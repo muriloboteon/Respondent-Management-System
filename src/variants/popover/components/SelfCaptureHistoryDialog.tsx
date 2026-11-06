@@ -31,8 +31,8 @@ export function SelfCaptureHistoryDialog({ respondent: r, onClose }: { responden
     >
       <div className="modal-head">
         <div>
-          <h2 id="history-title">Self captures</h2>
-          <p id="history-sub" className="modal-sub">{r.name} has taken part in the following Self Captures activities:</p>
+          <h2 id="history-title">Async activities</h2>
+          <p id="history-sub" className="modal-sub">{r.name} has taken part in the following async activities:</p>
         </div>
         <button type="button" className="icon-btn bordered" aria-label="Close" onClick={onClose}>
           <Icon name="x" />

@@ -209,18 +209,17 @@ const ALIASES: Array<[string, RegExp]> = (
   [
     ['interview', 'interviews?|sessions?'],
     ['role', 'roles?'],
-    ['live', 'self[- ]?captures?|diar(?:y|ies)'],
+    ['live', 'async(?: activit(?:y|ies))?|self[- ]?captures?|diar(?:y|ies)'],
     ['tech', 'tech[- ]?checks?'],
     ['consent', 'consent(?: forms?)?'],
     ['prior', 'repeat(?: respondents?)?'],
     ['fav', 'favou?rites?'],
-    ['pid', 'ids?'],
     ['email', 'e-?mails?'],
     ['name', 'names?'],
     ['timezone', 'time ?zones?'],
     ['source', 'sources?|recruited (?:by|through|via)'],
     ['addedOn', 'added(?: on)?|added dates?'],
-    ['lastActivity', 'last activity|activity'],
+    ['lastActivity', 'last activity|(?<!async )activity'],
     ['gender', 'genders?|sex'],
     ['country', 'countr(?:y|ies)|based in|living in|li(?:ve|ves) in|located in'],
     ['income', 'income|sel|social economic level'],
@@ -395,7 +394,6 @@ function textHits(typed: string): Hit[] {
     add(m, 'email', m[1].toLowerCase())
   }
   for (const m of typed.matchAll(/\be-?mails? (?:contains?|containing|with|ending (?:in|with)|at|from|like)\s+(\S+)/gi)) add(m, 'email', clean(m[1]))
-  for (const m of typed.matchAll(/\bids? (?:contains?|containing|starting with|starts with|like|is)\s+(\S+)/gi)) add(m, 'pid', clean(m[1]))
   return hits
 }
 
@@ -577,7 +575,7 @@ export function interpretationNotes(i: Interpretation): AiNote[] {
     notes.push({ text: `Not understood: ${words}`, detail: `“${words}” didn’t match any property or value, so it was left out.` })
   }
   for (const words of i.ambiguous) {
-    notes.push({ text: `Unclear: ${words}`, detail: `“${words}” could mean self captures or tech check. Say which one, e.g. “self captures ${words}”.` })
+    notes.push({ text: `Unclear: ${words}`, detail: `“${words}” could mean async activities or tech check. Say which one, e.g. “async activities ${words}”.` })
   }
   if (i.orAcross) {
     notes.push({ text: '“or” not applied', detail: 'Filters on different properties can’t be combined with “or”, so respondents must match all of them.' })
